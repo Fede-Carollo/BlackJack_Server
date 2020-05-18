@@ -10,18 +10,21 @@ using System.Windows.Forms;
 using System.Net;
 using SOCKET_UDP;
 using Newtonsoft.Json;
+using System.Net.Sockets;
 
 namespace BlackJack_Server
 {
     public partial class Form1 : Form
     {
         clsServerUDP server;
-        int client_collegati = 0;
-        Dictionary<string>
+        List<clsClientUDP> beforeLogin;
+        Dictionary<Player, clsClientUDP> lobby;
+
         public Form1()
         {
             InitializeComponent();
-            server = new clsServerUDP(IPAddress.Parse("127.0.0.1"), 7777);
+            server = new clsServerUDP(IPAddress.Parse(GetLocalIPAddress()), 7777);
+            beforeLogin = new List<clsClientUDP>();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -34,6 +37,32 @@ namespace BlackJack_Server
         {
             string[] ricevuti = message.toArray();
             ObjMex msg = JsonConvert.DeserializeObject<ObjMex>(ricevuti[2]);
+            switch(msg.Action)
+            {
+                case "new-conn":
+                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(GetLocalIPAddress()), (int)msg.Data);
+                    beforeLogin.Add(client);
+                    ClsMessaggio mex = new ClsMessaggio(GetLocalIPAddress(), msg.Data.ToString());
+                    ObjMex objMex = new ObjMex("conn-established", "");
+                    mex.Messaggio = JsonConvert.SerializeObject(objMex);
+                    client.Invia(mex);
+                    break;
+                case "login-ask":
+                    break;
+            }
+        }
+
+        public static string GetLocalIPAddress()
+        {
+            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
+            foreach (IPAddress ip in host.AddressList)
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    return ip.ToString();
+                }
+            }
+            throw new Exception("Nessuna interfaccia di rete disponibile su questo computer");
         }
     }
 }

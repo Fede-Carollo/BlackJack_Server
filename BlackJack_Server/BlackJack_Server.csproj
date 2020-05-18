@@ -65,6 +65,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="clsAddress.cs" />
+    <Compile Include="clsClientUDP.cs" />
     <Compile Include="ClsMessaggio.cs" />
     <Compile Include="clsServerUDP.cs" />
     <Compile Include="Form1.cs">
