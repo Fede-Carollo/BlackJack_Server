@@ -16,6 +16,8 @@ namespace BlackJack_Server
     public partial class Form1 : Form
     {
         clsServerUDP server;
+        int client_collegati = 0;
+        Dictionary<string>
         public Form1()
         {
             InitializeComponent();
