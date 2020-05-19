@@ -25,7 +25,7 @@ namespace BlackJack_Server
         public Form1()
         {
             InitializeComponent();
-            server = new clsServerUDP(IPAddress.Parse(GetLocalIPAddress()), 7777);
+            server = new clsServerUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 7777);
             clients = new Dictionary<int, clsClientUDP>();
             p_controller = new Player_Controller();
         }
@@ -45,10 +45,10 @@ namespace BlackJack_Server
             {
                 case "new-conn":
                     int id = GeneraId();
-                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(GetLocalIPAddress()), (int)msg.SingleData);
+                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), (int)msg.SingleData);
                     clients.Add(id,client);
-                    ClsMessaggio mex = new ClsMessaggio(GetLocalIPAddress(), msg.SingleData.ToString());
-                    ObjMex objMex = new ObjMex("conn-established", id);
+                    ClsMessaggio mex = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), msg.SingleData.ToString());
+                    ObjMex objMex = new ObjMex("conn-established", null, id);
                     mex.Messaggio = JsonConvert.SerializeObject(objMex);
                     client.Invia(mex);
                     break;
@@ -57,15 +57,15 @@ namespace BlackJack_Server
                     Player player = msg.MultipleData[1] as Player;
                     if ((player = p_controller.ReadPlayer(player.Email, player.Password)) == null)
                     {
-                        ClsMessaggio mes = new ClsMessaggio(GetLocalIPAddress(), msg.MultipleData.ToString());
-                        ObjMex objMes = new ObjMex("login-failed", "");
+                        ClsMessaggio mes = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), msg.MultipleData.ToString());
+                        ObjMex objMes = new ObjMex("login-failed", null, null);
                         mes.Messaggio = JsonConvert.SerializeObject(objMes);
                         clients[id_player].Invia(mes);
                     }
                     else
                     {
-                        ClsMessaggio mes = new ClsMessaggio(GetLocalIPAddress(), msg.MultipleData.ToString());
-                        ObjMex objMes = new ObjMex("login-success", JsonConvert.SerializeObject(player));
+                        ClsMessaggio mes = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), msg.MultipleData.ToString());
+                        ObjMex objMes = new ObjMex("login-success",null, JsonConvert.SerializeObject(player));
                         mes.Messaggio = JsonConvert.SerializeObject(objMes);
                         clients[id_player].Invia(mes);
                     }
@@ -94,19 +94,6 @@ namespace BlackJack_Server
             }
             while (alr_existing);
             return id;
-        }
-
-        public static string GetLocalIPAddress()
-        {
-            IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-            foreach (IPAddress ip in host.AddressList)
-            {
-                if (ip.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    return ip.ToString();
-                }
-            }
-            throw new Exception("Nessuna interfaccia di rete disponibile su questo computer");
         }
     }
 }
