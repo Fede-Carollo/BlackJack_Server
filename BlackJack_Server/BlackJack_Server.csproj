@@ -68,6 +68,7 @@
     <Compile Include="clsClientUDP.cs" />
     <Compile Include="ClsMessaggio.cs" />
     <Compile Include="clsServerUDP.cs" />
+    <Compile Include="DbUtilities.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -76,6 +77,7 @@
     </Compile>
     <Compile Include="ObjMex.cs" />
     <Compile Include="Player.cs" />
+    <Compile Include="Player_Controller.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">

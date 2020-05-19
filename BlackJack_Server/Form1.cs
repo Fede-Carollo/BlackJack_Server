@@ -20,11 +20,14 @@ namespace BlackJack_Server
         Dictionary<int,clsClientUDP> clients;
         Dictionary<int, Player> lobby;
 
+        Player_Controller p_controller;
+
         public Form1()
         {
             InitializeComponent();
             server = new clsServerUDP(IPAddress.Parse(GetLocalIPAddress()), 7777);
             clients = new Dictionary<int, clsClientUDP>();
+            p_controller = new Player_Controller();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -49,12 +52,23 @@ namespace BlackJack_Server
                     client.Invia(mex);
                     break;
                 case "login-ask":
-                    int current_id = (int)msg.MultipleData[0];
-                    Player credenziali = msg.MultipleData[1] as Player;
-                    ClsMessaggio mes = new ClsMessaggio(GetLocalIPAddress(), msg.MultipleData.ToString());
-                    ObjMex objMes = new ObjMex("login-failed", "");
-                    mes.Messaggio = JsonConvert.SerializeObject(objMes);
-                    clients[(int)msg.MultipleData[0]].Invia(mes);
+                    int id_player = (int)msg.MultipleData[0];
+                    Player player = msg.MultipleData[1] as Player;
+                    if ((player = p_controller.ReadPlayer(player.Email, player.Password)) == null)
+                    {
+                        ClsMessaggio mes = new ClsMessaggio(GetLocalIPAddress(), msg.MultipleData.ToString());
+                        ObjMex objMes = new ObjMex("login-failed", "");
+                        mes.Messaggio = JsonConvert.SerializeObject(objMes);
+                        clients[id_player].Invia(mes);
+                    }
+                    else
+                    {
+                        ClsMessaggio mes = new ClsMessaggio(GetLocalIPAddress(), msg.MultipleData.ToString());
+                        ObjMex objMes = new ObjMex("login-success", JsonConvert.SerializeObject(player));
+                        mes.Messaggio = JsonConvert.SerializeObject(objMes);
+                        clients[id_player].Invia(mes);
+                    }
+                    
                     break;
             }
         }
