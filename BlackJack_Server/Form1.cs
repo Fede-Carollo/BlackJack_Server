@@ -54,8 +54,12 @@ namespace BlackJack_Server
                     break;
                 case "login-ask":
                     int id_player = (int)msg.MultipleData[0];
-                    Player player = msg.MultipleData[1] as Player;
-                    if ((player = p_controller.ReadPlayer(player.Email, player.Password)) == null)
+                    Player player = JsonConvert.DeserializeObject<Player>(msg.MultipleData[1].ToString());
+                    if (player.Email != null)
+                        player = p_controller.ReadPlayer_ByEmailAndPass(player.Email, player.Password);
+                    else
+                        player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
+                    if (player == null)
                     {
                         ClsMessaggio mes = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), msg.MultipleData.ToString());
                         ObjMex objMes = new ObjMex("login-failed", null, null);

@@ -16,11 +16,13 @@ namespace BlackJack_Server
         public string Password { get => _password; set => _password = value; }
         public string Email { get => _email; set => _email = value; }
 
-        public Player(string usern, string pass)
+        public Player(string Email, string Username, string Password)
         {
-            this._username = usern;
-            this._password = pass;
+            this._username = Username;
+            this._password = Password;
+            this._email = Email;
         }
+
         public Player() { }
     }
 }

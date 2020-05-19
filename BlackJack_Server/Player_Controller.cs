@@ -16,16 +16,17 @@ namespace BlackJack_Server
         SqlConnection conn;
         SqlCommand myCommand;
 
-        internal Player ReadPlayer(string email, string password)
+        internal Player ReadPlayer_ByEmailAndPass(string email, string password)
         {
             conn = DbUtilities.InstanceSqlConn();
+            conn.Open();
             myCommand = conn.CreateCommand();
             try
             {
                 myCommand.Parameters.AddWithValue("@email", email);
                 myCommand.Parameters.AddWithValue("@password", password);
                 myCommand.CommandType = CommandType.StoredProcedure;
-                myCommand.CommandText = "Player_ReadByCredentials";
+                myCommand.CommandText = "Player_ReadByEmailAndPass";
                 p = new Player();
                 using (SqlDataReader dr = myCommand.ExecuteReader())
                 {
@@ -34,7 +35,41 @@ namespace BlackJack_Server
                         return null;
                     p.Email = dr["email"].ToString();
                     p.Username = dr["username"].ToString();
-                    p.Password = dr["password"].ToString();
+                    p.Password = dr["pass"].ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+            finally
+            {
+                myCommand.Dispose();
+                conn.Close();
+                conn = null;
+            }
+            return p;
+        }
+        internal Player ReadPlayer_ByUsernameAndPass(string username, string password)
+        {
+            conn = DbUtilities.InstanceSqlConn();
+            conn.Open();
+            myCommand = conn.CreateCommand();
+            try
+            {
+                myCommand.Parameters.AddWithValue("@username", username);
+                myCommand.Parameters.AddWithValue("@password", password);
+                myCommand.CommandType = CommandType.StoredProcedure;
+                myCommand.CommandText = "Player_ReadByUsernameAndPass";
+                p = new Player();
+                using (SqlDataReader dr = myCommand.ExecuteReader())
+                {
+                    dr.Read();
+                    if (!dr.HasRows)
+                        return null;
+                    p.Email = dr["email"].ToString();
+                    p.Username = dr["username"].ToString();
+                    p.Password = dr["pass"].ToString();
                 }
             }
             catch (Exception ex)
