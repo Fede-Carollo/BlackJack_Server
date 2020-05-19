@@ -39,7 +39,8 @@ namespace BlackJack_Server
         private void Server_datiRicevutiEvent(ClsMessaggio message)
         {
             string[] ricevuti = message.toArray();
-            ObjMex msg = JsonConvert.DeserializeObject<ObjMex>(ricevuti[2]);
+            ObjMex msg = new ObjMex(null, null, null);
+            msg = JsonConvert.DeserializeObject<ObjMex>(ricevuti[2]);
             switch(msg.Action)
             {
                 case "new-conn":

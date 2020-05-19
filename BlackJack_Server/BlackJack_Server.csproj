@@ -75,6 +75,7 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="NetUtilities.cs" />
     <Compile Include="ObjMex.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="Player_Controller.cs" />

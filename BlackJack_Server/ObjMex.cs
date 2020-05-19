@@ -28,5 +28,18 @@ namespace BlackJack_Server
             this._action = action;
             this._singleData = data;
         }
+        public ObjMex(string action)
+        {
+
+        }
+
+        public ObjMex(string action, List<dynamic> multipleData, dynamic singleData)
+        {
+            this._action = action;
+            this._singleData = singleData;
+            this.MultipleData = multipleData;
+        }
+
+        public ObjMex() { }
     }
 }

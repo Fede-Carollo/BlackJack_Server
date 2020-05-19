@@ -16,7 +16,7 @@ namespace BlackJack_Server
         SqlConnection conn;
         SqlCommand myCommand;
 
-        public Player ReadPlayer(string email, string password)
+        internal Player ReadPlayer(string email, string password)
         {
             conn = DbUtilities.InstanceSqlConn();
             myCommand = conn.CreateCommand();
