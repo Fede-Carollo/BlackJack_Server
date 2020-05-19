@@ -17,14 +17,14 @@ namespace BlackJack_Server
     public partial class Form1 : Form
     {
         clsServerUDP server;
-        List<clsClientUDP> beforeLogin;
-        Dictionary<Player, clsClientUDP> lobby;
+        Dictionary<int,clsClientUDP> clients;
+        Dictionary<int, Player> lobby;
 
         public Form1()
         {
             InitializeComponent();
             server = new clsServerUDP(IPAddress.Parse(GetLocalIPAddress()), 7777);
-            beforeLogin = new List<clsClientUDP>();
+            clients = new Dictionary<int, clsClientUDP>();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -40,16 +40,45 @@ namespace BlackJack_Server
             switch(msg.Action)
             {
                 case "new-conn":
-                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(GetLocalIPAddress()), (int)msg.Data);
-                    beforeLogin.Add(client);
-                    ClsMessaggio mex = new ClsMessaggio(GetLocalIPAddress(), msg.Data.ToString());
-                    ObjMex objMex = new ObjMex("conn-established", "");
+                    int id = GeneraId();
+                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(GetLocalIPAddress()), (int)msg.SingleData);
+                    clients.Add(id,client);
+                    ClsMessaggio mex = new ClsMessaggio(GetLocalIPAddress(), msg.SingleData.ToString());
+                    ObjMex objMex = new ObjMex("conn-established", id);
                     mex.Messaggio = JsonConvert.SerializeObject(objMex);
                     client.Invia(mex);
                     break;
                 case "login-ask":
+                    int current_id = (int)msg.MultipleData[0];
+                    Player credenziali = msg.MultipleData[1] as Player;
+                    ClsMessaggio mes = new ClsMessaggio(GetLocalIPAddress(), msg.MultipleData.ToString());
+                    ObjMex objMes = new ObjMex("login-failed", "");
+                    mes.Messaggio = JsonConvert.SerializeObject(objMes);
+                    clients[(int)msg.MultipleData[0]].Invia(mes);
                     break;
             }
+        }
+
+        private int GeneraId()
+        {
+            Random rnd = new Random(DateTime.Now.Millisecond);
+            int id;
+            bool alr_existing = false;
+            do
+            {
+                alr_existing = false;
+                id = rnd.Next(10000, 100000);
+                foreach (var key in clients.Keys)
+                {
+                    if(key == id)
+                    {
+                        alr_existing = true;
+                        break;
+                    }
+                }
+            }
+            while (alr_existing);
+            return id;
         }
 
         public static string GetLocalIPAddress()
