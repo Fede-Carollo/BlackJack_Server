@@ -80,9 +80,10 @@ namespace BlackJack_Server
                     }
                     break;
                 case "join-lobby":
-                    //if()
+                    //if ()
                     id_player = Convert.ToInt32(received.Data[0]);
                     nowPlaying.Add(id_player, lobby[id_player]);
+                    
                     //TODO
                     break;
             }
@@ -130,12 +131,34 @@ namespace BlackJack_Server
         private void CaricaMazzo()
         {
             char[] semi = new char[] { 'c', 'q', 'p', 'f' };
-            foreach (char seme in semi)
+
+            Mazzo = new List<Card>();
+
+            for(int i = 0; i < 3; i++)
             {
-                for (int i = 1; i <= 13; i++)
+                foreach (char seme in semi)
                 {
-                    
+                    for (int j = 1; j <= 13; j++)
+                    {
+                        Mazzo.Add(new Card(seme, j, j < 10 ? j : 10));
+                    }
                 }
+            }
+            
+        }
+
+        private void ShuffleMazzo()
+        {
+            Random rng = new Random();
+
+            int n = Mazzo.Count;
+            while (n > 1)
+            {
+                n--;
+                int k = rng.Next(n + 1);
+                Card carta = Mazzo[k];
+                Mazzo[k] = Mazzo[n];
+                Mazzo[n] = carta;
             }
         }
     }
