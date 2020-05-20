@@ -67,6 +67,7 @@ namespace SOCKET_UDP
             {
                 try
                 {
+                    bufferRx = new byte[MAX_BYTE];
                     nByteRicevuti = socketServer.ReceiveFrom(bufferRx, MAX_BYTE, SocketFlags.None, ref endPointClient);
                     message = Encoding.ASCII.GetString(bufferRx);
                     ClsMessaggio mex = new ClsMessaggio(message,';');

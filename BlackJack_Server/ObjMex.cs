@@ -9,18 +9,16 @@ namespace BlackJack_Server
     internal class ObjMex
     {
         private string _action;
-        private List<dynamic> _multipleData;
+        private List<object> _data;
         private dynamic _singleData;
 
         public string Action { get => _action; set => _action = value; }
-        public List<dynamic> MultipleData { get => _multipleData; set => _multipleData = value; }
-        public dynamic SingleData { get => _singleData; set => _singleData = value; }
-
-        public ObjMex(string action, List<dynamic> multipleData, dynamic singleData)
+        public List<object> Data { get => _data; set => _data = value; }
+        
+        public ObjMex(string action, List<object> data)
         {
             this._action = action;
-            this._singleData = singleData;
-            this._multipleData = multipleData;
+            this._data = data;
         }
 
         public ObjMex() { }
