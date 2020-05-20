@@ -24,6 +24,8 @@ namespace BlackJack_Server
         Dictionary<int, Player> nowPlaying;
         List<Place> posti;
 
+        bool gameStarted;
+
         Player_Controller p_controller;
 
         public Form1()
@@ -80,9 +82,16 @@ namespace BlackJack_Server
                     }
                     break;
                 case "join-lobby":
-                    //if ()
                     id_player = Convert.ToInt32(received.Data[0]);
-                    nowPlaying.Add(id_player, lobby[id_player]);
+
+                    if (nowPlaying.Count < 4 && !gameStarted)
+                    {
+                        nowPlaying.Add(id_player, lobby[id_player]);
+                        clients[id_player].Invia(GeneraMessaggio("lobby-joined", null));
+                    }
+                    else
+                        clients[id_player].Invia(GeneraMessaggio("lobby-rejected", null));
+                        
                     
                     //TODO
                     break;
