@@ -16,11 +16,13 @@ namespace BlackJack_Server
 {
     public partial class Form1 : Form
     {
+        List<Card> Mazzo;
         clsServerUDP server;
         Player player;
         Dictionary<int,clsClientUDP> clients;
         Dictionary<int, Player> lobby;
         Dictionary<int, Player> nowPlaying;
+        List<Place> posti;
 
         Player_Controller p_controller;
 
@@ -78,6 +80,7 @@ namespace BlackJack_Server
                     }
                     break;
                 case "join-lobby":
+                    //if()
                     id_player = Convert.ToInt32(received.Data[0]);
                     nowPlaying.Add(id_player, lobby[id_player]);
                     //TODO
@@ -121,6 +124,18 @@ namespace BlackJack_Server
             foreach (clsClientUDP client in clients.Values)
             {
                 client.Invia(GeneraMessaggio("server-shutdown",null));
+            }
+        }
+
+        private void CaricaMazzo()
+        {
+            char[] semi = new char[] { 'c', 'q', 'p', 'f' };
+            foreach (char seme in semi)
+            {
+                for (int i = 1; i <= 13; i++)
+                {
+                    
+                }
             }
         }
     }
