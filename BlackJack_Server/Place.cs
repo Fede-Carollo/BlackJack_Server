@@ -47,7 +47,7 @@ namespace BlackJack_Server
 
             for (int i = 0; i < assi.Count; i++)
             {
-                if (tot + 11 <= 21 && assi.Count == 1 || tot + 11 <= 20 && assi.Count == 2 || tot + 11 <= 19 && assi.Count == 3)
+                if (tot + 11 <= 21 && assi.Count == 1 || tot + 11 <= 20 && assi.Count == 2 || tot + 11 <= 19 && assi.Count == 3 || tot + 11 <= 18 && assi.Count == 4)
                 {
                     tot += 11;
                 }
