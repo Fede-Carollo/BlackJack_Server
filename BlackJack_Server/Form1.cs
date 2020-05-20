@@ -51,14 +51,12 @@ namespace BlackJack_Server
             {
                 case "new-conn":
                     int id = GeneraId();
-                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), Convert.ToInt32(received.Data[0]));
+                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 
+                                                            Convert.ToInt32(received.Data[0]));
                     clients.Add(id,client);
-                    toSend = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), received.Data[0].ToString());
                     List<object> lst = new List<object>();
                     lst.Add(id);
-                    objToSend = new ObjMex("conn-established", lst);
-                    toSend.Messaggio = JsonConvert.SerializeObject(objToSend);
-                    client.Invia(toSend);
+                    client.Invia(GeneraMessaggio("conn-established",lst));
                     break;
                 case "login-ask":
                     int id_player = Convert.ToInt32(received.Data[0]);
@@ -69,31 +67,32 @@ namespace BlackJack_Server
                         player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
                     if (player == null)
                     {
-                        toSend = new ClsMessaggio(NetUtilities.GetLocalIPAddress(),"");
-                        lst = new List<object>();
-                        lst.Add("Credenziali errate");
-                        objToSend = new ObjMex("login-failed", lst);
-                        toSend.Messaggio = JsonConvert.SerializeObject(objToSend);
-                        clients[id_player].Invia(toSend);
+                        clients[id_player].Invia(GeneraMessaggio("login-failed",null));
                     }
                     else
                     {
-                        toSend = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), "");
                         lst = new List<object>();
-                        lst.Add(JsonConvert.SerializeObject(player));
-                        objToSend = new ObjMex("login-success",lst);
-                        toSend.Messaggio = JsonConvert.SerializeObject(objToSend);
-                        clients[id_player].Invia(toSend);
+                        lst.Add(player);
+                        clients[id_player].Invia(GeneraMessaggio("login-success",lst));
                         lobby.Add(id_player, player);
                     }
                     break;
                 case "join-lobby":
                     id_player = Convert.ToInt32(received.Data[0]);
                     nowPlaying.Add(id_player, lobby[id_player]);
-
+                    //TODO
                     break;
             }
         }
+
+        public ClsMessaggio GeneraMessaggio(string action, List<object> data)
+        {
+            ClsMessaggio toSend = new ClsMessaggio();
+            ObjMex objMex = new ObjMex(action, data);
+            toSend.Messaggio = JsonConvert.SerializeObject(objMex);
+            return toSend;
+        }
+
 
         private int GeneraId()
         {
@@ -119,16 +118,9 @@ namespace BlackJack_Server
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            ClsMessaggio mex;
-            ObjMex objMex;
             foreach (clsClientUDP client in clients.Values)
             {
-                mex = new ClsMessaggio(NetUtilities.GetLocalIPAddress(), "");
-                List<object> lst = new List<object>();
-                lst.Add("Connection lost");
-                objMex = new ObjMex("server-shutdown",lst);
-                mex.Messaggio = JsonConvert.SerializeObject(objMex);
-                client.Invia(mex);
+                client.Invia(GeneraMessaggio("server-shutdown",null));
             }
         }
     }
