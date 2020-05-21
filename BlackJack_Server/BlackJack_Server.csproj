@@ -64,6 +64,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Card.cs" />
     <Compile Include="clsAddress.cs" />
     <Compile Include="clsClientUDP.cs" />
     <Compile Include="ClsMessaggio.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="Gioco.cs" />
     <Compile Include="NetUtilities.cs" />
     <Compile Include="ObjMex.cs" />
     <Compile Include="Place.cs" />

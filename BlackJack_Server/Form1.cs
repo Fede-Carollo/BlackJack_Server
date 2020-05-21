@@ -16,13 +16,9 @@ namespace BlackJack_Server
 {
     public partial class Form1 : Form
     {
-        List<Card> Mazzo;
         clsServerUDP server;
         Player player;
-        Dictionary<int,clsClientUDP> clients;
-        Dictionary<int, Player> lobby;
-        Dictionary<int, Player> nowPlaying;
-        List<Place> posti;
+        Gioco gioco;
 
         bool gameStarted;
 
@@ -32,9 +28,6 @@ namespace BlackJack_Server
         {
             InitializeComponent();
             server = new clsServerUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 7777);
-            lobby = new Dictionary<int, Player>();
-            nowPlaying = new Dictionary<int, Player>();
-            clients = new Dictionary<int, clsClientUDP>();
             p_controller = new Player_Controller();
         }
 
@@ -42,6 +35,8 @@ namespace BlackJack_Server
         {
             server.avvia();
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
+            gioco.Lobby = new Dictionary<int, Player>(4);
+            gioco = new Gioco(server);
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)
@@ -57,7 +52,7 @@ namespace BlackJack_Server
                     int id = GeneraId();
                     clsClientUDP client = new clsClientUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 
                                                             Convert.ToInt32(received.Data[0]));
-                    clients.Add(id,client);
+                    gioco.ClientsConnected.Add(id,client);
                     List<object> lst = new List<object>();
                     lst.Add(id);
                     client.Invia(GeneraMessaggio("conn-established",lst));
@@ -71,32 +66,28 @@ namespace BlackJack_Server
                         player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
                     if (player == null)
                     {
-                        clients[id_player].Invia(GeneraMessaggio("login-failed",null));
+                        gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-failed",null));
                     }
                     else
                     {
-                        lst = new List<object>();
-                        lst.Add(player);
-                        clients[id_player].Invia(GeneraMessaggio("login-success",lst));
-                        lobby.Add(id_player, player);
+                        if(gioco.Lobby.Count < 4)
+                        {
+                            lst = new List<object>();
+                            lst.Add(player);
+                            lst.Add(gioco.DeterminaPosto());
+                            gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
+                            gioco.Lobby.Add(id_player, player);
+                            gioco.Posti.Add(new Place(player, gioco.DeterminaPosto()));
+                        }
+                        else
+                        {
+                            gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("lobby-full", null));
+                        }
                     }
-                    break;
-                case "join-lobby":
-                    id_player = Convert.ToInt32(received.Data[0]);
-
-                    if (nowPlaying.Count < 4 && !gameStarted)
-                    {
-                        nowPlaying.Add(id_player, lobby[id_player]);
-                        clients[id_player].Invia(GeneraMessaggio("lobby-joined", null));
-                    }
-                    else
-                        clients[id_player].Invia(GeneraMessaggio("lobby-rejected", null));
-                        
-                    
-                    //TODO
                     break;
             }
         }
+
 
         public ClsMessaggio GeneraMessaggio(string action, List<object> data)
         {
@@ -116,7 +107,7 @@ namespace BlackJack_Server
             {
                 alr_existing = false;
                 id = rnd.Next(10000, 100000);
-                foreach (var key in clients.Keys)
+                foreach (var key in gioco.ClientsConnected.Keys)
                 {
                     if(key == id)
                     {
@@ -131,43 +122,9 @@ namespace BlackJack_Server
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            foreach (clsClientUDP client in clients.Values)
+            foreach (clsClientUDP client in gioco.ClientsConnected.Values)
             {
                 client.Invia(GeneraMessaggio("server-shutdown",null));
-            }
-        }
-
-        private void CaricaMazzo()
-        {
-            char[] semi = new char[] { 'c', 'q', 'p', 'f' };
-
-            Mazzo = new List<Card>();
-
-            for(int i = 0; i < 3; i++)
-            {
-                foreach (char seme in semi)
-                {
-                    for (int j = 1; j <= 13; j++)
-                    {
-                        Mazzo.Add(new Card(seme, j, j < 10 ? j : 10));
-                    }
-                }
-            }
-            
-        }
-
-        private void ShuffleMazzo()
-        {
-            Random rng = new Random();
-
-            int n = Mazzo.Count;
-            while (n > 1)
-            {
-                n--;
-                int k = rng.Next(n + 1);
-                Card carta = Mazzo[k];
-                Mazzo[k] = Mazzo[n];
-                Mazzo[n] = carta;
             }
         }
     }

@@ -10,9 +10,17 @@ namespace BlackJack_Server
     {
         private Player _player;
         private List<Card> _carte;
+        private int _posizione;
 
         public List<Card> Carte { get => _carte; set => _carte = value; }
         internal Player Player { get => _player; set => _player = value; }
+        public int Posizione { get => _posizione; set => _posizione = value; }
+
+        internal Place(Player player, int pos)
+        {
+            this._player = player;
+            this._posizione = pos;
+        }
 
         //ritorna il valore e se è blackjack
         public (int,bool) GetMano()
@@ -55,24 +63,6 @@ namespace BlackJack_Server
                     tot += 1;
             }
             return (tot, isBlackJack);
-        }
-    }
-
-    public class Card
-    {
-        private char _seme;
-        private int _numero;
-        private int _valore;
-
-        public char Seme { get => _seme; set => _seme = value; }
-        public int Valore { get => _valore; set => _valore = value; }
-        public int Numero { get => _numero; set => _numero = value; }
-
-        public Card(char seme, int numero, int valore)
-        {
-            this._seme = seme;
-            this._numero = numero;
-            this._valore = valore;
         }
     }
 }
