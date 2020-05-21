@@ -20,6 +20,7 @@ namespace BlackJack_Server
         {
             this._player = player;
             this._posizione = pos;
+            _carte = new List<Card>();
         }
 
         //ritorna il valore e se è blackjack

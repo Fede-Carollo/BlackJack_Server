@@ -74,6 +74,14 @@ namespace BlackJack_Server
                 foreach (clsClientUDP client in _clientsConnected.Values)
                     client.Invia(mex);
             }
+            Place p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+            foreach (var keyValue in _nowPlaying)
+            {
+                if(keyValue.Value.Username == p.Player.Username)
+                {
+                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                }
+            }
 
         }
 
@@ -82,18 +90,16 @@ namespace BlackJack_Server
 
         }
 
+        //Terminato
         public int DeterminaPosto()
         {
             for (int i = 1; i <= 4; i++)
-            {
                 if (!this._posti.Any(p => p.Posizione == i))
-                {
-                    return i+1;
-                }
-            }
+                    return i;
             return 0;
         }
 
+        //Terminato - funzionante
         public ClsMessaggio GeneraMessaggio(string action, List<object> data)
         {
             ClsMessaggio toSend = new ClsMessaggio();
@@ -102,6 +108,7 @@ namespace BlackJack_Server
             return toSend;
         }
 
+        //Terminato - funzionante
         private void CaricaMazzo()
         {
             char[] semi = new char[] { 'c', 'q', 'p', 'f' };
@@ -121,6 +128,7 @@ namespace BlackJack_Server
 
         }
 
+        //Terminato - funzionante
         private void ShuffleMazzo()
         {
             Random rng = new Random();

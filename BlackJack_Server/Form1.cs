@@ -35,7 +35,6 @@ namespace BlackJack_Server
         {
             server.avvia();
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
-            gioco.Lobby = new Dictionary<int, Player>(4);
             gioco = new Gioco(server);
         }
 
@@ -78,12 +77,16 @@ namespace BlackJack_Server
                             gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
                             gioco.Lobby.Add(id_player, player);
                             gioco.Posti.Add(new Place(player, gioco.DeterminaPosto()));
+                            gioco.NuovoTurno();
                         }
                         else
                         {
                             gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("lobby-full", null));
                         }
                     }
+                    break;
+                case "prova":
+                    gioco.ClientsConnected.First().Value.Invia(GeneraMessaggio("prova", null));
                     break;
             }
         }
