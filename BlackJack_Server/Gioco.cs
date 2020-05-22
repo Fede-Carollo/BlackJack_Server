@@ -45,9 +45,96 @@ namespace BlackJack_Server
             ClsMessaggio toSend = new ClsMessaggio();
             ObjMex objToSend = new ObjMex();
             received = JsonConvert.DeserializeObject<ObjMex>(ricevuti[2]);
+            int id_player;
+            Place p;
             switch(received.Action)
             {
                 default:
+                    break;
+
+                case "player-hit":
+                    id_player = Convert.ToInt32(received.Data[0]);
+                    _posti.Find(pl => pl.Posizione == _havePlayed + 1).Carte.Add(_mazzo[0]);
+                    _mazzo.RemoveAt(0);
+
+                    List<object> lst = new List<object>();
+                    foreach (Place posto in _posti)
+                        lst.Add(posto);
+                    ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
+                    foreach (clsClientUDP client in _clientsConnected.Values)
+                        client.Invia(mex);
+
+                    (int, bool) hand = _posti.Find(pl => pl.Posizione == _havePlayed + 1).GetMano();
+
+                    if(hand.Item1 < 21)
+                    {
+                        _clientsConnected[id_player].Invia(GeneraMessaggio("your-turn", null));
+                    }
+                    else if(hand.Item1 == 21)
+                    {
+                        _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", null));
+                        _havePlayed++;
+
+                        if(_havePlayed == 4)
+                        {
+                            FineTurno();
+                        }
+                        else
+                        {
+                            p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+                            foreach (var keyValue in _nowPlaying)
+                            {
+                                if (keyValue.Value.Username == p.Player.Username)
+                                {
+                                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _clientsConnected[id_player].Invia(GeneraMessaggio("hand-bust", null));
+                        _havePlayed++;
+
+                        if (_havePlayed == 4)
+                        {
+                            FineTurno();
+                        }
+                        else
+                        {
+                            p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+                            foreach (var keyValue in _nowPlaying)
+                            {
+                                if (keyValue.Value.Username == p.Player.Username)
+                                {
+                                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                                }
+                            }
+                        }
+                    }
+
+                    //TODO: gestire blackjack
+                    break;
+
+                case "player-stand":
+                    id_player = Convert.ToInt32(received.Data[0]);
+                    _havePlayed++;
+
+                    if (_havePlayed == 4)
+                    {
+                        FineTurno();
+                    }
+                    else
+                    {
+                        p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+                        foreach (var keyValue in _nowPlaying)
+                        {
+                            if (keyValue.Value.Username == p.Player.Username)
+                            {
+                                _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                            }
+                        }
+                    }
                     break;
             }
         }
