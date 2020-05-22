@@ -77,7 +77,6 @@ namespace BlackJack_Server
                             gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
                             gioco.Lobby.Add(id_player, player);
                             gioco.Posti.Add(new Place(player, gioco.DeterminaPosto()));
-                            gioco.NuovoTurno();
                         }
                         else
                         {
@@ -85,8 +84,11 @@ namespace BlackJack_Server
                         }
                     }
                     break;
-                case "prova":
-                    gioco.ClientsConnected.First().Value.Invia(GeneraMessaggio("prova", null));
+                case "player-ready":
+                    if(!gioco.gameStarted)
+                    {
+                        gioco.NuovoTurno();
+                    }
                     break;
             }
         }

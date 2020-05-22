@@ -21,6 +21,7 @@ namespace BlackJack_Server
         private Dictionary<int, Player> _nowPlaying;
         private List<Place> _posti;
         private Place _banco;
+        public bool gameStarted;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -39,7 +40,9 @@ namespace BlackJack_Server
             this.ClientsConnected = new Dictionary<int, clsClientUDP>();
             this._server = server;
             this._posti = new List<Place>(4);
+            this._banco = new Place();
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
+            gameStarted = false;
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)
@@ -56,19 +59,26 @@ namespace BlackJack_Server
                 default:
                     break;
 
-                case "player-hit":
-                    id_player = Convert.ToInt32(received.Data[0]);
-                    _posti.Find(pl => pl.Posizione == _havePlayed + 1).Carte.Add(_mazzo[0]);
+                case "player-hit": 
+                    int posizione_tavolo = Convert.ToInt32(received.Data[0]);
+                    id_player = Convert.ToInt32(received.Data[1]);
+                    _posti.Find(pl => pl.Posizione == posizione_tavolo).Carte.Add(_mazzo[0]);
                     _mazzo.RemoveAt(0);
-
                     List<object> lst = new List<object>();
                     foreach (Place posto in _posti)
-                        lst.Add(posto);
-                    ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
-                    foreach (clsClientUDP client in _clientsConnected.Values)
-                        client.Invia(mex);
+                    {
+                        if(posto.Posizione == posizione_tavolo)
+                        {
+                            lst.Add(posto);
+                            ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
+                            foreach (clsClientUDP client in _clientsConnected.Values)
+                                client.Invia(mex);
+                            break;
+                        }
+                    }
+                        
 
-                    (int, bool) hand = _posti.Find(pl => pl.Posizione == _havePlayed + 1).GetMano();
+                    (int, bool) hand = _posti.Find(pl => pl.Posizione == posizione_tavolo).GetMano();
 
                     if(hand.Item1 < 21)
                         _clientsConnected[id_player].Invia(GeneraMessaggio("your-turn", null));
@@ -77,7 +87,7 @@ namespace BlackJack_Server
                         _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", null));
                         _havePlayed++;
 
-                        if(_havePlayed == 4)
+                        if(_havePlayed == _posti.Count)
                             FineTurno();
                         else
                         {
@@ -98,7 +108,7 @@ namespace BlackJack_Server
                             FineTurno();
                         else
                         {
-                            p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+                            p = _posti.Find(pl => pl.Posizione == _havePlayed);
                             foreach (var keyValue in _nowPlaying)
                             {
                                 if (keyValue.Value.Username == p.Player.Username)
@@ -129,6 +139,7 @@ namespace BlackJack_Server
 
         public void NuovoTurno()
         {
+            gameStarted = true;
             //aggiunta player entrati con il turno in corso
             foreach (var player in _lobby)
                 _nowPlaying.Add(player.Key,player.Value);
