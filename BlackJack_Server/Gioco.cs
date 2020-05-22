@@ -5,7 +5,9 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace BlackJack_Server
 {
@@ -67,27 +69,21 @@ namespace BlackJack_Server
                     (int, bool) hand = _posti.Find(pl => pl.Posizione == _havePlayed + 1).GetMano();
 
                     if(hand.Item1 < 21)
-                    {
                         _clientsConnected[id_player].Invia(GeneraMessaggio("your-turn", null));
-                    }
                     else if(hand.Item1 == 21)
                     {
                         _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", null));
                         _havePlayed++;
 
                         if(_havePlayed == 4)
-                        {
                             FineTurno();
-                        }
                         else
                         {
                             p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
                             foreach (var keyValue in _nowPlaying)
                             {
                                 if (keyValue.Value.Username == p.Player.Username)
-                                {
                                     _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                                }
                             }
                         }
                     }
@@ -97,18 +93,14 @@ namespace BlackJack_Server
                         _havePlayed++;
 
                         if (_havePlayed == 4)
-                        {
                             FineTurno();
-                        }
                         else
                         {
                             p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
                             foreach (var keyValue in _nowPlaying)
                             {
                                 if (keyValue.Value.Username == p.Player.Username)
-                                {
                                     _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                                }
                             }
                         }
                     }
@@ -121,18 +113,14 @@ namespace BlackJack_Server
                     _havePlayed++;
 
                     if (_havePlayed == 4)
-                    {
                         FineTurno();
-                    }
                     else
                     {
                         p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
                         foreach (var keyValue in _nowPlaying)
                         {
                             if (keyValue.Value.Username == p.Player.Username)
-                            {
                                 _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                            }
                         }
                     }
                     break;
@@ -172,9 +160,29 @@ namespace BlackJack_Server
 
         }
 
-        public void FineTurno()
+        public void FineTurno() //TODO: confronto con il banco, controllo pareggi
         {
+            Place higher = new Place(null, 0);
+            List<object> lst = new List<object>();
 
+            foreach(Place p in _posti)
+            {
+                if (p.GetMano().Item1 > higher.GetMano().Item1)
+                    higher = p;
+            }
+
+            lst.Add(higher);
+
+            foreach (var keyValue in _nowPlaying)
+            {
+                if (keyValue.Value.Username == higher.Player.Username)
+                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("hand-won", null));
+                else
+                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("hand-lost", lst));
+            }
+
+            Thread.Sleep(5000);
+            NuovoTurno();
         }
 
         //Terminato
