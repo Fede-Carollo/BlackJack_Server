@@ -20,6 +20,7 @@ namespace BlackJack_Server
         private Dictionary<int, Player> _lobby;
         private Dictionary<int, Player> _nowPlaying;
         private List<Place> _posti;
+        private Place _banco;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -28,6 +29,7 @@ namespace BlackJack_Server
         public List<Place> Posti { get => _posti; set => _posti = value; }
         internal clsServerUDP Server { get => _server; set => _server = value; }
         public List<Card> Mazzo { get => _mazzo; set => _mazzo = value; }
+        public Place Banco { get => _banco; set => _banco = value; }
 
         internal Gioco(clsServerUDP server)
         {
@@ -104,8 +106,6 @@ namespace BlackJack_Server
                             }
                         }
                     }
-
-                    //TODO: gestire blackjack
                     break;
 
                 case "player-stand":
@@ -149,21 +149,43 @@ namespace BlackJack_Server
                 foreach (clsClientUDP client in _clientsConnected.Values)
                     client.Invia(mex);
             }
-            Place p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
-            foreach (var keyValue in _nowPlaying)
+            //generazione carte banco
+            List<object> list = new List<object>();
+            for (int i = 0; i < 2; i++)
             {
-                if(keyValue.Value.Username == p.Player.Username)
+                _banco.Carte.Add(_mazzo[0]);
+                _mazzo.RemoveAt(0);
+            }
+            list.Add(_banco);
+            ClsMessaggio mess = GeneraMessaggio("new-cards-dealer", list);
+            foreach (clsClientUDP client in _clientsConnected.Values)
+                client.Invia(mess);
+
+            if (_banco.GetMano().Item2)
+                FineTurno();
+            else
+            {
+                Place p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+                foreach (var keyValue in _nowPlaying)
                 {
-                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                    if (keyValue.Value.Username == p.Player.Username)
+                    {
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                    }
                 }
             }
-
         }
 
-        public void FineTurno() //TODO: confronto con il banco, controllo pareggi
+        public void FineTurno() //TODO: controllo pareggi, gestione blackjack
         {
             Place higher = new Place(null, 0);
             List<object> lst = new List<object>();
+
+            while(_banco.GetMano().Item1 < 17)
+            {
+                _banco.Carte.Add(_mazzo[0]);
+                _mazzo.RemoveAt(0);
+            }
 
             foreach(Place p in _posti)
             {
@@ -171,17 +193,29 @@ namespace BlackJack_Server
                     higher = p;
             }
 
-            lst.Add(higher);
-
-            foreach (var keyValue in _nowPlaying)
+            if(higher.GetMano().Item1 > _banco.GetMano().Item1 || _banco.GetMano().Item1 > 21)
             {
-                if (keyValue.Value.Username == higher.Player.Username)
-                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("hand-won", null));
-                else
-                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("hand-lost", lst));
+                lst.Add(higher);
+                foreach (var keyValue in _nowPlaying)
+                {
+                    if (keyValue.Value.Username == higher.Player.Username)
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("you-win", null));
+                    else
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("player-wins", lst));
+                }
+            }
+            else
+            {
+                foreach (var keyValue in _nowPlaying)
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("dealer-wins", null));
             }
 
             Thread.Sleep(5000);
+
+            _banco.Carte.Clear();
+            foreach (Place p in _posti)
+                p.Carte.Clear();
+
             NuovoTurno();
         }
 
