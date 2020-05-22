@@ -76,15 +76,13 @@ namespace BlackJack_Server
                             break;
                         }
                     }
-                        
-
                     (int, bool) hand = _posti.Find(pl => pl.Posizione == posizione_tavolo).GetMano();
 
-                    if(hand.Item1 < 21)
-                        _clientsConnected[id_player].Invia(GeneraMessaggio("your-turn", null));
-                    else if(hand.Item1 == 21)
+                    if(hand.Item1 == 21)
                     {
-                        _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", null));
+                        lst = new List<object>();
+                        lst.Add(hand.Item2);
+                        _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", lst));
                         _havePlayed++;
 
                         if(_havePlayed == _posti.Count)
@@ -122,7 +120,7 @@ namespace BlackJack_Server
                     id_player = Convert.ToInt32(received.Data[0]);
                     _havePlayed++;
 
-                    if (_havePlayed == 4)
+                    if (_havePlayed == _posti.Count)
                         FineTurno();
                     else
                     {
@@ -172,17 +170,17 @@ namespace BlackJack_Server
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(mess);
 
-            if (_banco.GetMano().Item2)
-                FineTurno();
-            else
+            StartPlayerTurn(_havePlayed+1);
+        }
+
+        private void StartPlayerTurn(int pos)
+        {
+            Place p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+            foreach (var keyValue in _nowPlaying)
             {
-                Place p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
-                foreach (var keyValue in _nowPlaying)
+                if (keyValue.Value.Username == p.Player.Username)
                 {
-                    if (keyValue.Value.Username == p.Player.Username)
-                    {
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                    }
+                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
                 }
             }
         }
@@ -210,7 +208,7 @@ namespace BlackJack_Server
                 foreach (var keyValue in _nowPlaying)
                 {
                     if (keyValue.Value.Username == higher.Player.Username)
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("you-win", null));
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("server-wins", null));
                     else
                         _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("player-wins", lst));
                 }
@@ -226,8 +224,8 @@ namespace BlackJack_Server
             _banco.Carte.Clear();
             foreach (Place p in _posti)
                 p.Carte.Clear();
-
-            NuovoTurno();
+            if(_nowPlaying.Count != 0 || _lobby.Count != 0)
+                NuovoTurno();
         }
 
         //Terminato
