@@ -63,8 +63,9 @@ namespace BlackJack_Server
                 case "player-hit": 
                     int posizione_tavolo = Convert.ToInt32(received.Data[0]);
                     id_player = Convert.ToInt32(received.Data[1]);
-                    _posti.Find(pl => pl.Posizione == posizione_tavolo).Carte.Add(_mazzo[0]);
-                    _mazzo.RemoveAt(0);
+                    int posizione_mazzo = RandomPos();
+                    _posti.Find(pl => pl.Posizione == posizione_tavolo).Carte.Add(_mazzo[posizione_mazzo]);
+                    _mazzo.RemoveAt(posizione_mazzo);
                     List<object> lst = new List<object>();
                     foreach (Place posto in _posti)
                     {
@@ -151,20 +152,24 @@ namespace BlackJack_Server
             foreach (var player in _lobby)
             {
                 _nowPlaying.Add(player.Key, player.Value);
-                
+            }
+            foreach (int key in _nowPlaying.Keys)
+            {
+                _clientsConnected[key].Invia(GeneraMessaggio("new-turn", null));
             }
             _lobby = new Dictionary<int, Player>();
             _havePlayed = 0;
             CaricaMazzo();
-            ShuffleMazzo();
+            //ShuffleMazzo();
             //generazione carte per ogni giocatore
             foreach (Place posto in _posti)
             {
                 List<object> lst = new List<object>();
                 for (int i = 0; i < 2; i++)
                 {
-                    posto.Carte.Add(_mazzo[0]);
-                    _mazzo.RemoveAt(0);
+                    int posizione_mazzo = RandomPos();
+                    posto.Carte.Add(_mazzo[posizione_mazzo]);
+                    _mazzo.RemoveAt(posizione_mazzo);
                 }
                 lst.Add(posto);
                 ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
@@ -177,7 +182,8 @@ namespace BlackJack_Server
                     lst.Add(mano.Item2);
                     foreach (var client in _clientsConnected.Values)
                     {
-                        client.Invia(GeneraMessaggio("hand-twentyone-first", null));
+                        client.Invia(GeneraMessaggio("hand-twentyone-first", lst));
+                        StartPlayerTurn(++_havePlayed);
                     }
                 }
             }
@@ -185,8 +191,9 @@ namespace BlackJack_Server
             List<object> list = new List<object>();
             for (int i = 0; i < 2; i++)
             {
-                _banco.Carte.Add(_mazzo[0]);
-                _mazzo.RemoveAt(0);
+                int posizione_mazzo = RandomPos();
+                _banco.Carte.Add(_mazzo[posizione_mazzo]);
+                _mazzo.RemoveAt(posizione_mazzo);
             }
             list.Add(_banco);
             list.Add(true);     //nascondi carta
@@ -199,7 +206,7 @@ namespace BlackJack_Server
 
         private void StartPlayerTurn(int pos)
         {
-            Place p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
+            Place p = _posti.Find(pl => pl.Posizione == pos);
             foreach (var keyValue in _nowPlaying)
             {
                 if (keyValue.Value.Username == p.Player.Username)
@@ -226,13 +233,14 @@ namespace BlackJack_Server
                 while (_banco.GetMano().Item1 < 17)
                 {
                     lst = new List<object>();
-                    _banco.Carte.Add(_mazzo[0]);
+                    int posizione_mazzo = RandomPos();
+                    _banco.Carte.Add(_mazzo[posizione_mazzo]);
                     lst.Add(_banco);
                     lst.Add(false);  //non nascondere la carta del dealer 
                     foreach (var client in _clientsConnected.Values)
                         client.Invia(GeneraMessaggio("new-cards-dealer", lst));
-                    _mazzo.RemoveAt(0);
-                    Thread.Sleep(1000);
+                    _mazzo.RemoveAt(posizione_mazzo);
+                    Thread.Sleep(3000);
                 }
             }
 
@@ -249,39 +257,43 @@ namespace BlackJack_Server
                         toSend = _clientsConnected[keyValue.Key];
                     }
                 }
-                if(mano_player.Item1 > 21)  //giocatore sballa
+                if(toSend!=null)
                 {
-                    toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                }
-                else if(mano_banco.Item1 > 21)
-                {
-                    toSend.Invia(GeneraMessaggio("player-wins", null));
-                }
-                else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
-                {
-                    toSend.Invia(GeneraMessaggio("draw", null));
-                }
-                else if(mano_player.Item2)  //blackjack player
-                {
-                    toSend.Invia(GeneraMessaggio("player-wins", null));
-                }
-                else if(mano_banco.Item2)   //blackjack server
-                {
-                    toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                }
-                else if(mano_banco.Item1 == mano_player.Item1)  //stessa mano
-                {
-                    toSend.Invia(GeneraMessaggio("draw", null));
-                }
-                else if(mano_player.Item1>mano_banco.Item1) //player > server
-                {
-                    toSend.Invia(GeneraMessaggio("player-wins", null));
-                }
-                else    //server > player
-                {
-                    toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    if (mano_player.Item1 > 21)  //giocatore sballa
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    }
+                    else if (mano_banco.Item1 > 21)
+                    {
+                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                    }
+                    else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
+                    {
+                        toSend.Invia(GeneraMessaggio("draw", null));
+                    }
+                    else if (mano_player.Item2)  //blackjack player
+                    {
+                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                    }
+                    else if (mano_banco.Item2)   //blackjack server
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    }
+                    else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
+                    {
+                        toSend.Invia(GeneraMessaggio("draw", null));
+                    }
+                    else if (mano_player.Item1 > mano_banco.Item1) //player > server
+                    {
+                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                    }
+                    else    //server > player
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    }
                 }
             }
+                
 
             Thread.Sleep(5000);
 
@@ -317,20 +329,17 @@ namespace BlackJack_Server
 
             Mazzo = new List<Card>();
 
-            for (int i = 0; i < 3; i++)
+            foreach (char seme in semi)
             {
-                foreach (char seme in semi)
+                for (int j = 1; j <= 13; j++)
                 {
-                    for (int j = 1; j <= 13; j++)
-                    {
-                        Mazzo.Add(new Card(seme, j, j < 10 ? j : 10));
-                    }
+                    Mazzo.Add(new Card(seme, j, j < 10 ? j : 10));
                 }
             }
 
         }
 
-        //Terminato - funzionante
+        //Terminato - non funzionante
         private void ShuffleMazzo()
         {
             Random rng = new Random();
@@ -344,6 +353,12 @@ namespace BlackJack_Server
                 Mazzo[k] = Mazzo[n];
                 Mazzo[n] = carta;
             }
+        }
+
+        private int RandomPos()
+        {
+            Random rnd = new Random(DateTime.Now.Millisecond);
+            return rnd.Next(_mazzo.Count);
         }
     }
 }
