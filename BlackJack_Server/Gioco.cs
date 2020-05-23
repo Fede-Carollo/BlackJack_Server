@@ -22,6 +22,7 @@ namespace BlackJack_Server
         private List<Place> _posti;
         private Place _banco;
         public bool gameStarted;
+        private int id_playing;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -93,7 +94,11 @@ namespace BlackJack_Server
                             foreach (var keyValue in _nowPlaying)
                             {
                                 if (keyValue.Value.Username == p.Player.Username)
+                                {
                                     _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                                    id_playing = keyValue.Key;
+                                }
+                                    
                             }
                         }
                     }
@@ -110,7 +115,11 @@ namespace BlackJack_Server
                             foreach (var keyValue in _nowPlaying)
                             {
                                 if (keyValue.Value.Username == p.Player.Username)
+                                {
                                     _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                                    id_playing = keyValue.Key;
+                                }
+                                    
                             }
                         }
                     }
@@ -196,13 +205,13 @@ namespace BlackJack_Server
                 if (keyValue.Value.Username == p.Player.Username)
                 {
                     _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                    id_playing = keyValue.Key;
                 }
             }
         }
 
         public void FineTurno() //TODO: controllo pareggi, gestione blackjack
         {
-            Place higher = new Place(null, 0);
             List<object> lst;
 
             if(_banco.GetMano().Item1 >= 17)
@@ -229,27 +238,42 @@ namespace BlackJack_Server
 
             foreach(Place p in _posti)
             {
-                if (p.GetMano().Item1 > higher.GetMano().Item1)
-                    higher = p;
-            }
-            lst = new List<object>();
-            if(higher.GetMano().Item1 > _banco.GetMano().Item1 || _banco.GetMano().Item1 > 21)
-            {
-                lst.Add(higher);
+                clsClientUDP toSend = new clsClientUDP(null,0);
+                (int, bool) mano_player = p.GetMano();
+                (int, bool) mano_banco = _banco.GetMano();
+                //determino il client corrispondente al posto
                 foreach (var keyValue in _nowPlaying)
                 {
-                    if (keyValue.Value.Username == higher.Player.Username)
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("server-wins", null));
-                    else
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("player-wins", lst));
+                    if (keyValue.Value.Username == p.Player.Username)
+                    {
+                        toSend = _clientsConnected[keyValue.Key];
+                    }
+                }
+                if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
+                {
+                    toSend.Invia(GeneraMessaggio("draw", null));
+                }
+                else if(mano_player.Item2)  //blackjack player
+                {
+                    toSend.Invia(GeneraMessaggio("player-wins", null));
+                }
+                else if(mano_banco.Item2)   //blackjack server
+                {
+                    toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                }
+                else if(mano_banco.Item1 == mano_player.Item1)  //stessa mano
+                {
+                    toSend.Invia(GeneraMessaggio("draw", null));
+                }
+                else if(mano_player.Item1>mano_banco.Item1) //player > server
+                {
+                    toSend.Invia(GeneraMessaggio("player-wins", null));
+                }
+                else    //server > player
+                {
+                    toSend.Invia(GeneraMessaggio("dealer-wins", null));
                 }
             }
-            else
-            {
-                foreach (var keyValue in _nowPlaying)
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("dealer-wins", null));
-            }
-
 
             Thread.Sleep(5000);
 
