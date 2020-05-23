@@ -97,12 +97,12 @@ namespace BlackJack_Server
                             }
                         }
                     }
-                    else
+                    else if(hand.Item1>21)
                     {
                         _clientsConnected[id_player].Invia(GeneraMessaggio("hand-bust", null));
                         _havePlayed++;
 
-                        if (_havePlayed == 4)
+                        if (_havePlayed == _nowPlaying.Count)
                             FineTurno();
                         else
                         {
@@ -117,10 +117,10 @@ namespace BlackJack_Server
                     break;
 
                 case "player-stand":
-                    id_player = Convert.ToInt32(received.Data[0]);
+                    //id_player = Convert.ToInt32(received.Data[0]);
                     _havePlayed++;
 
-                    if (_havePlayed == _posti.Count)
+                    if (_havePlayed == _nowPlaying.Count)
                         FineTurno();
                     else
                     {
@@ -140,7 +140,11 @@ namespace BlackJack_Server
             gameStarted = true;
             //aggiunta player entrati con il turno in corso
             foreach (var player in _lobby)
-                _nowPlaying.Add(player.Key,player.Value);
+            {
+                _nowPlaying.Add(player.Key, player.Value);
+                
+            }
+            _lobby = new Dictionary<int, Player>();
             _havePlayed = 0;
             CaricaMazzo();
             ShuffleMazzo();
@@ -157,6 +161,16 @@ namespace BlackJack_Server
                 ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
                 foreach (clsClientUDP client in _clientsConnected.Values)
                     client.Invia(mex);
+                (int, bool) mano = posto.GetMano();
+                if(mano.Item1 == 21)
+                {
+                    lst = new List<object>();
+                    lst.Add(mano.Item2);
+                    foreach (var client in _clientsConnected.Values)
+                    {
+                        client.Invia(GeneraMessaggio("hand-twentyone-first", null));
+                    }
+                }
             }
             //generazione carte banco
             List<object> list = new List<object>();
@@ -166,6 +180,7 @@ namespace BlackJack_Server
                 _mazzo.RemoveAt(0);
             }
             list.Add(_banco);
+            list.Add(true);     //nascondi carta
             ClsMessaggio mess = GeneraMessaggio("new-cards-dealer", list);
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(mess);
@@ -188,12 +203,28 @@ namespace BlackJack_Server
         public void FineTurno() //TODO: controllo pareggi, gestione blackjack
         {
             Place higher = new Place(null, 0);
-            List<object> lst = new List<object>();
+            List<object> lst;
 
-            while(_banco.GetMano().Item1 < 17)
+            if(_banco.GetMano().Item1 >= 17)
             {
-                _banco.Carte.Add(_mazzo[0]);
-                _mazzo.RemoveAt(0);
+                foreach (var client in _clientsConnected.Values)
+                {
+                    client.Invia(GeneraMessaggio("unveil-card", null));
+                }
+            }
+            else
+            {
+                while (_banco.GetMano().Item1 < 17)
+                {
+                    lst = new List<object>();
+                    _banco.Carte.Add(_mazzo[0]);
+                    lst.Add(_banco);
+                    lst.Add(false);  //non nascondere la carta del dealer 
+                    foreach (var client in _clientsConnected.Values)
+                        client.Invia(GeneraMessaggio("new-cards-dealer", lst));
+                    _mazzo.RemoveAt(0);
+                    Thread.Sleep(1000);
+                }
             }
 
             foreach(Place p in _posti)
@@ -201,7 +232,7 @@ namespace BlackJack_Server
                 if (p.GetMano().Item1 > higher.GetMano().Item1)
                     higher = p;
             }
-
+            lst = new List<object>();
             if(higher.GetMano().Item1 > _banco.GetMano().Item1 || _banco.GetMano().Item1 > 21)
             {
                 lst.Add(higher);
@@ -218,6 +249,7 @@ namespace BlackJack_Server
                 foreach (var keyValue in _nowPlaying)
                         _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("dealer-wins", null));
             }
+
 
             Thread.Sleep(5000);
 

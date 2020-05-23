@@ -10,7 +10,6 @@ namespace BlackJack_Server
     {
         private string _action;
         private List<object> _data;
-        private dynamic _singleData;
 
         public string Action { get => _action; set => _action = value; }
         public List<object> Data { get => _data; set => _data = value; }

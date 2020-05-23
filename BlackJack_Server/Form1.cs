@@ -20,7 +20,7 @@ namespace BlackJack_Server
         Player player;
         Gioco gioco;
 
-        bool gameStarted;
+        //bool gameStarted;
 
         Player_Controller p_controller;
 
