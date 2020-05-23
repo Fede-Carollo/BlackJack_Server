@@ -238,7 +238,7 @@ namespace BlackJack_Server
 
             foreach(Place p in _posti)
             {
-                clsClientUDP toSend = new clsClientUDP(null,0);
+                clsClientUDP toSend = null;
                 (int, bool) mano_player = p.GetMano();
                 (int, bool) mano_banco = _banco.GetMano();
                 //determino il client corrispondente al posto
@@ -249,7 +249,15 @@ namespace BlackJack_Server
                         toSend = _clientsConnected[keyValue.Key];
                     }
                 }
-                if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
+                if(mano_player.Item1 > 21)  //giocatore sballa
+                {
+                    toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                }
+                else if(mano_banco.Item1 > 21)
+                {
+                    toSend.Invia(GeneraMessaggio("player-wins", null));
+                }
+                else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
                 {
                     toSend.Invia(GeneraMessaggio("draw", null));
                 }
