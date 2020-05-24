@@ -128,6 +128,32 @@ namespace BlackJack_Server
             }
         }
 
+        internal void UpdatePlayerNames()
+        {
+            List<object> lst = new List<object>();
+            foreach (Place posto in _posti)
+            {
+                lst.Add(posto.Player.Username);
+                lst.Add(posto.Posizione);
+            }
+            foreach (clsClientUDP client in _clientsConnected.Values)
+                client.Invia(GeneraMessaggio("update-names", lst));
+        }
+
+        internal void UpdateGraphicsPlayer(Player player)
+        {
+            List<object> lst = new List<object>();
+            lst.Add(_banco);
+            foreach (Place posto in _posti)
+                lst.Add(posto);
+            Place p = _posti.Find(pl => pl.Player.Username == player.Username);
+            foreach (var keyValue in _lobby)
+            {
+                if (keyValue.Value.Username == player.Username)
+                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("update-graphics", lst));
+            }
+        }
+
         public void NuovoTurno()
         {
             gameStarted = true;
@@ -153,7 +179,6 @@ namespace BlackJack_Server
                 {
                     posto.Carte.Add(_mazzo[0]);
                     _mazzo.RemoveAt(0);
-                    Thread.Sleep(500);
                 }
                 lst.Add(posto);
                 ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
@@ -179,13 +204,13 @@ namespace BlackJack_Server
             List<object> list = new List<object>();
             for (int i = 0; i < 2; i++)
             {
-                int posizione_mazzo = RandomPos();
-                _banco.Carte.Add(_mazzo[posizione_mazzo]);
-                _mazzo.RemoveAt(posizione_mazzo);
+                _banco.Carte.Add(_mazzo[0]);
+                _mazzo.RemoveAt(0);
             }
             list.Add(_banco);
             list.Add(true);     //nascondi carta
             ClsMessaggio mess = GeneraMessaggio("new-cards-dealer", list);
+            Console.WriteLine((list[0] as Place).Carte.Count);
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(mess);
 
@@ -222,13 +247,13 @@ namespace BlackJack_Server
                 while (_banco.GetMano().Item1 < 17)
                 {
                     lst = new List<object>();
-                    int posizione_mazzo = RandomPos();
-                    _banco.Carte.Add(_mazzo[posizione_mazzo]);
+                    _banco.Carte.Add(_mazzo[0]);
                     lst.Add(_banco);
                     lst.Add(false);  //non nascondere la carta del dealer 
+                    Console.WriteLine((lst[0] as Place).Carte.Count);
                     foreach (var client in _clientsConnected.Values)
                         client.Invia(GeneraMessaggio("new-cards-dealer", lst));
-                    _mazzo.RemoveAt(posizione_mazzo);
+                    _mazzo.RemoveAt(0);
                     Thread.Sleep(1500);
                 }
             }
@@ -291,7 +316,7 @@ namespace BlackJack_Server
                 NuovoTurno();
         }
 
-        //Terminato
+        //Terminato - Funzionante
         public int DeterminaPosto()
         {
             for (int i = 1; i <= 4; i++)
@@ -326,7 +351,7 @@ namespace BlackJack_Server
 
         }
 
-        //Terminato - non funzionante
+        //Terminato - funzionante
         private void ShuffleMazzo()
         {
             Random rng = new Random();
@@ -340,12 +365,6 @@ namespace BlackJack_Server
                 Mazzo[k] = Mazzo[n];
                 Mazzo[n] = carta;
             }
-        }
-
-        private int RandomPos()
-        {
-            Random rnd = new Random(DateTime.Now.Millisecond);
-            return rnd.Next(_mazzo.Count);
         }
     }
 }

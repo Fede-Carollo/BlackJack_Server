@@ -19,6 +19,7 @@ namespace BlackJack_Server
         clsServerUDP server;
         Player player;
         Gioco gioco;
+        List<Player> playersConnected;
 
         //bool gameStarted;
 
@@ -29,6 +30,7 @@ namespace BlackJack_Server
             InitializeComponent();
             server = new clsServerUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 7777);
             p_controller = new Player_Controller();
+            playersConnected = new List<Player>();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -63,9 +65,11 @@ namespace BlackJack_Server
                         player = p_controller.ReadPlayer_ByEmailAndPass(player.Email, player.Password);
                     else
                         player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
-                    if (player == null)
+                    if (player == null || playersConnected.Any(p=> p.Username == player.Username))
                     {
-                        gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-failed",null));
+                        lst = new List<object>();
+                        lst.Add(player == null);
+                        gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-failed",lst));
                     }
                     else
                     {
@@ -77,6 +81,10 @@ namespace BlackJack_Server
                             gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
                             gioco.Lobby.Add(id_player, player);
                             gioco.Posti.Add(new Place(player, gioco.DeterminaPosto()));
+                            playersConnected.Add(player);
+                            if(gioco.NowPlaying.Count > 0)
+                                gioco.UpdateGraphicsPlayer(player);
+                            gioco.UpdatePlayerNames();
                         }
                         else
                         {
