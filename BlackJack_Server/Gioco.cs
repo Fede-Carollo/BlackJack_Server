@@ -63,9 +63,8 @@ namespace BlackJack_Server
                 case "player-hit": 
                     int posizione_tavolo = Convert.ToInt32(received.Data[0]);
                     id_player = Convert.ToInt32(received.Data[1]);
-                    int posizione_mazzo = RandomPos();
-                    _posti.Find(pl => pl.Posizione == posizione_tavolo).Carte.Add(_mazzo[posizione_mazzo]);
-                    _mazzo.RemoveAt(posizione_mazzo);
+                    _posti.Find(pl => pl.Posizione == posizione_tavolo).Carte.Add(_mazzo[0]);
+                    _mazzo.RemoveAt(0);
                     List<object> lst = new List<object>();
                     foreach (Place posto in _posti)
                     {
@@ -112,16 +111,7 @@ namespace BlackJack_Server
                             FineTurno();
                         else
                         {
-                            p = _posti.Find(pl => pl.Posizione == _havePlayed);
-                            foreach (var keyValue in _nowPlaying)
-                            {
-                                if (keyValue.Value.Username == p.Player.Username)
-                                {
-                                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                                    id_playing = keyValue.Key;
-                                }
-                                    
-                            }
+                            StartPlayerTurn(_havePlayed + 1);
                         }
                     }
                     break;
@@ -133,14 +123,7 @@ namespace BlackJack_Server
                     if (_havePlayed == _nowPlaying.Count)
                         FineTurno();
                     else
-                    {
-                        p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
-                        foreach (var keyValue in _nowPlaying)
-                        {
-                            if (keyValue.Value.Username == p.Player.Username)
-                                _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                        }
-                    }
+                        StartPlayerTurn(_havePlayed + 1);
                     break;
             }
         }
@@ -160,16 +143,17 @@ namespace BlackJack_Server
             _lobby = new Dictionary<int, Player>();
             _havePlayed = 0;
             CaricaMazzo();
-            //ShuffleMazzo();
+            ShuffleMazzo();
             //generazione carte per ogni giocatore
             foreach (Place posto in _posti)
             {
+                posto.Carte = new List<Card>();
                 List<object> lst = new List<object>();
                 for (int i = 0; i < 2; i++)
                 {
-                    int posizione_mazzo = RandomPos();
-                    posto.Carte.Add(_mazzo[posizione_mazzo]);
-                    _mazzo.RemoveAt(posizione_mazzo);
+                    posto.Carte.Add(_mazzo[0]);
+                    _mazzo.RemoveAt(0);
+                    Thread.Sleep(500);
                 }
                 lst.Add(posto);
                 ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
@@ -183,7 +167,11 @@ namespace BlackJack_Server
                     foreach (var client in _clientsConnected.Values)
                     {
                         client.Invia(GeneraMessaggio("hand-twentyone-first", lst));
-                        StartPlayerTurn(++_havePlayed);
+                        _havePlayed++;
+                        if (_havePlayed != _nowPlaying.Count)
+                            StartPlayerTurn(_havePlayed + 1);
+                        else
+                            NuovoTurno();
                     }
                 }
             }
@@ -221,6 +209,7 @@ namespace BlackJack_Server
         {
             List<object> lst;
 
+            //Controlli banco che deve fare almeno 17
             if(_banco.GetMano().Item1 >= 17)
             {
                 foreach (var client in _clientsConnected.Values)
@@ -240,7 +229,7 @@ namespace BlackJack_Server
                     foreach (var client in _clientsConnected.Values)
                         client.Invia(GeneraMessaggio("new-cards-dealer", lst));
                     _mazzo.RemoveAt(posizione_mazzo);
-                    Thread.Sleep(3000);
+                    Thread.Sleep(1500);
                 }
             }
 
@@ -293,8 +282,6 @@ namespace BlackJack_Server
                     }
                 }
             }
-                
-
             Thread.Sleep(5000);
 
             _banco.Carte.Clear();
