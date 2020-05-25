@@ -18,16 +18,17 @@ namespace BlackJack_Server
         private List<Card> _mazzo;
         private clsServerUDP _server;
         private int _havePlayed;
-        private Dictionary<int, clsClientUDP> _clientsConnected;
-        private Dictionary<int, Player> _lobby;
-        private Dictionary<int, Player> _nowPlaying;
+        private volatile Dictionary<int, clsClientUDP> _clientsConnected;
+        private volatile Dictionary<int, Player> _lobby;
+        private volatile Dictionary<int, Player> _nowPlaying;
         private (Dictionary<int, clsClientUDP>,Dictionary<int, clsClientUDP>) _clientsPingResponse;
         private List<Place> _posti;
         private Place _banco;
         public bool gameStarted;
         private int id_playing;
-        private System.Windows.Forms.Timer pingResponse;
+        private volatile System.Windows.Forms.Timer pingResponse;
         private volatile int numPinged;
+        private Thread thPing;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -57,7 +58,10 @@ namespace BlackJack_Server
             pingResponse.Tick += PingResponse_Tick;
             pingResponse.Interval = 5000;
             numPinged = 0;
-            PingConn();
+            //PingConn();
+
+            thPing = new Thread(PingConn);
+            thPing.Start();
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)
@@ -189,11 +193,30 @@ namespace BlackJack_Server
             {
                 posto.Carte = new List<Card>();
                 List<object> lst = new List<object>();
+                /*
+#if DEBUG
+                if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
+                {
+                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
+                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
+                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
+                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
+                }
+                else
+                {
+                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
+                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
+                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
+                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
+                }
+#else
+*/
                 for (int i = 0; i < 2; i++)
                 {
                     posto.Carte.Add(_mazzo[0]);
                     _mazzo.RemoveAt(0);
                 }
+//#endif
                 lst.Add(posto);
                 ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
                 foreach (clsClientUDP client in _clientsConnected.Values)
@@ -205,12 +228,12 @@ namespace BlackJack_Server
                     lst.Add(mano.Item2);
                     foreach (var client in _clientsConnected.Values)
                     {
-                        client.Invia(GeneraMessaggio("hand-twentyone-first", lst));
+                         client.Invia(GeneraMessaggio("hand-twentyone-first", lst));
                         _havePlayed++;
                         if (_havePlayed != _nowPlaying.Count)
                             StartPlayerTurn(_havePlayed + 1);
                         else
-                            NuovoTurno();
+                            FineTurno();
                     }
                 }
             }
@@ -382,7 +405,7 @@ namespace BlackJack_Server
         }
 
 
-        #region ping connessi
+#region ping connessi
 
         private void PingConn()
         {
@@ -392,18 +415,18 @@ namespace BlackJack_Server
                 client.Value.Invia(GeneraMessaggio("ping"));
                 _clientsPingResponse.Item1.Add(client.Key, client.Value);
             }
-            #if DEBUG
+#if DEBUG
             Console.WriteLine($"ping inviato a {_clientsConnected.Count} client");
-            #endif
+#endif
             numPinged = _clientsConnected.Count;
             pingResponse.Start();
         }
 
         private void PingResponse_Tick(object sender, EventArgs e)
         {
-            #if DEBUG
+#if DEBUG
             Console.WriteLine($"Non hanno risposto {numPinged}");
-            #endif
+#endif
             if(numPinged>0)
             {
                 //TODO: qualcuno non ha risposto >:(
@@ -414,10 +437,10 @@ namespace BlackJack_Server
                         _clientsConnected.Remove(clientSentKey);
                     }
                 }
-                #if DEBUG
+#if DEBUG
                 foreach (var item in _clientsConnected.Keys)
                     Console.WriteLine(item);
-                #endif
+#endif
 
             }
             PingConn();
@@ -437,6 +460,6 @@ namespace BlackJack_Server
                     break;
             }
         }
-        #endregion
+#endregion
     }
 }
