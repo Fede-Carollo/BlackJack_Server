@@ -4,6 +4,8 @@ using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
+using System.ServiceModel;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,10 +21,13 @@ namespace BlackJack_Server
         private Dictionary<int, clsClientUDP> _clientsConnected;
         private Dictionary<int, Player> _lobby;
         private Dictionary<int, Player> _nowPlaying;
+        private (Dictionary<int, clsClientUDP>,Dictionary<int, clsClientUDP>) _clientsPingResponse;
         private List<Place> _posti;
         private Place _banco;
         public bool gameStarted;
         private int id_playing;
+        private System.Windows.Forms.Timer pingResponse;
+        private volatile int numPinged;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -43,7 +48,16 @@ namespace BlackJack_Server
             this._posti = new List<Place>(4);
             this._banco = new Place();
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
+            server.datiRicevutiEvent += Server_pingEvent;
             gameStarted = false;
+            
+
+            pingResponse = new System.Windows.Forms.Timer();
+
+            pingResponse.Tick += PingResponse_Tick;
+            pingResponse.Interval = 5000;
+            numPinged = 0;
+            PingConn();
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)
@@ -228,7 +242,7 @@ namespace BlackJack_Server
                     id_playing = keyValue.Key;
                 }
             }
-        }
+        }   //TODO: da modificare: deve mandare il messaggio al primo disponibile
 
         public void FineTurno() //TODO: controllo pareggi, gestione blackjack
         {
@@ -326,7 +340,7 @@ namespace BlackJack_Server
         }
 
         //Terminato - funzionante
-        public ClsMessaggio GeneraMessaggio(string action, List<object> data)
+        public ClsMessaggio GeneraMessaggio(string action, List<object> data = null)
         {
             ClsMessaggio toSend = new ClsMessaggio();
             ObjMex objMex = new ObjMex(action, data);
@@ -366,5 +380,63 @@ namespace BlackJack_Server
                 Mazzo[n] = carta;
             }
         }
+
+
+        #region ping connessi
+
+        private void PingConn()
+        {
+            _clientsPingResponse = (new Dictionary<int, clsClientUDP>(), new Dictionary<int, clsClientUDP>());
+            foreach (var client in _clientsConnected)
+            {
+                client.Value.Invia(GeneraMessaggio("ping"));
+                _clientsPingResponse.Item1.Add(client.Key, client.Value);
+            }
+            #if DEBUG
+            Console.WriteLine($"ping inviato a {_clientsConnected.Count} client");
+            #endif
+            numPinged = _clientsConnected.Count;
+            pingResponse.Start();
+        }
+
+        private void PingResponse_Tick(object sender, EventArgs e)
+        {
+            #if DEBUG
+            Console.WriteLine($"Non hanno risposto {numPinged}");
+            #endif
+            if(numPinged>0)
+            {
+                //TODO: qualcuno non ha risposto >:(
+                foreach (int clientSentKey in _clientsPingResponse.Item1.Keys)
+                {
+                    if(!_clientsPingResponse.Item2.Keys.Any(key => key == clientSentKey))
+                    {
+                        _clientsConnected.Remove(clientSentKey);
+                    }
+                }
+                #if DEBUG
+                foreach (var item in _clientsConnected.Keys)
+                    Console.WriteLine(item);
+                #endif
+
+            }
+            PingConn();
+        }
+
+        private void Server_pingEvent(ClsMessaggio message)
+        {
+            string[] ricevuti = message.toArray();
+            ObjMex received = new ObjMex(null, null);
+            received = JsonConvert.DeserializeObject<ObjMex>(ricevuti[2]);
+            switch (received.Action)
+            {
+                case "ping-response":
+                    int id_player = Convert.ToInt32(received.Data[0]);
+                    _clientsPingResponse.Item2.Add(id_player, _clientsPingResponse.Item1[id_player]);
+                    numPinged--;
+                    break;
+            }
+        }
+        #endregion
     }
 }
