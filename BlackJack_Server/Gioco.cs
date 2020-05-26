@@ -26,7 +26,6 @@ namespace BlackJack_Server
         private Place _banco;
         public bool gameStarted;
         private int id_playing;
-        private volatile System.Windows.Forms.Timer pingResponse;
         private volatile int numPinged;
         private Thread thPing;
 
@@ -53,14 +52,11 @@ namespace BlackJack_Server
             gameStarted = false;
             
 
-            pingResponse = new System.Windows.Forms.Timer();
-
-            pingResponse.Tick += PingResponse_Tick;
-            pingResponse.Interval = 5000;
+            
             numPinged = 0;
             //PingConn();
 
-            thPing = new Thread(PingConn);
+            thPing = new Thread(Ping_Method);
             thPing.Start();
         }
 
@@ -405,7 +401,24 @@ namespace BlackJack_Server
         }
 
 
-#region ping connessi
+        #region ping connessi
+        volatile bool canPing = false;
+        System.Windows.Forms.Timer pingResponse;
+
+        private void Ping_Method()
+        {
+            canPing = true;
+            while (true)
+            {
+                if(canPing)
+                {
+                    //PingConn();
+                    
+                    canPing = false;
+                }
+
+            }
+        }
 
         private void PingConn()
         {
@@ -419,6 +432,9 @@ namespace BlackJack_Server
             Console.WriteLine($"ping inviato a {_clientsConnected.Count} client");
 #endif
             numPinged = _clientsConnected.Count;
+            pingResponse = new System.Windows.Forms.Timer();
+            pingResponse.Tick += PingResponse_Tick;
+            pingResponse.Interval = 5000;
             pingResponse.Start();
         }
 
@@ -443,7 +459,8 @@ namespace BlackJack_Server
 #endif
 
             }
-            PingConn();
+            pingResponse.Stop();
+            canPing = true;
         }
 
         private void Server_pingEvent(ClsMessaggio message)
