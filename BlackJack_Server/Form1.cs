@@ -19,7 +19,7 @@ namespace BlackJack_Server
         clsServerUDP server;
         Player player;
         Gioco gioco;
-        List<Player> playersConnected;
+        internal static List<Player> playersConnected;
 
         //bool gameStarted;
 
@@ -80,7 +80,7 @@ namespace BlackJack_Server
                             lst.Add(gioco.DeterminaPosto());
                             gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
                             gioco.Lobby.Add(id_player, player);
-                            gioco.Posti.Add(new Place(player, gioco.DeterminaPosto()));
+                            gioco.Posti.Add(new Place(player, gioco.DeterminaPosto())); //TODO: probabilmente va assegnato dinamicamente a inizio turno per i nuovi player
                             playersConnected.Add(player);
                             if(gioco.NowPlaying.Count > 0)
                                 gioco.UpdateGraphicsPlayer(player);

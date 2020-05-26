@@ -27,6 +27,7 @@ namespace BlackJack_Server
         public bool gameStarted;
         private int id_playing;
         private int numPinged;
+        private bool alrExecuting;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -49,6 +50,7 @@ namespace BlackJack_Server
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
             server.datiRicevutiEvent += Server_pingEvent;
             gameStarted = false;
+            alrExecuting = false;
             
             numPinged = 0;
             PingConn();
@@ -98,16 +100,7 @@ namespace BlackJack_Server
                             FineTurno();
                         else
                         {
-                            p = _posti.Find(pl => pl.Posizione == _havePlayed + 1);
-                            foreach (var keyValue in _nowPlaying)
-                            {
-                                if (keyValue.Value.Username == p.Player.Username)
-                                {
-                                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                                    id_playing = keyValue.Key;
-                                }
-                                    
-                            }
+                            StartPlayerTurn(_havePlayed + 1);
                         }
                     }
                     else if(hand.Item1>21)
@@ -125,7 +118,7 @@ namespace BlackJack_Server
                     break;
 
                 case "player-stand":
-                    //id_player = Convert.ToInt32(received.Data[0]);
+                    id_player = Convert.ToInt32(received.Data[0]);
                     _havePlayed++;
 
                     if (_havePlayed == _nowPlaying.Count)
@@ -246,100 +239,120 @@ namespace BlackJack_Server
 
         private void StartPlayerTurn(int pos)
         {
-            Place p = _posti.Find(pl => pl.Posizione == pos);
-            foreach (var keyValue in _nowPlaying)
+            Place p;
+            do
             {
-                if (keyValue.Value.Username == p.Player.Username)
+                p = _posti.Find(pl => pl.Posizione == pos);
+                if (p == null)
+                    pos++;
+            }
+            while (p == null && pos <= 4);
+            if (pos>4)    //TODO: pensare al controllo di pos
+                FineTurno();
+            else
+            {
+                foreach (var keyValue in _nowPlaying)
                 {
-                    _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                    id_playing = keyValue.Key;
+                    if (keyValue.Value.Username == p.Player.Username)
+                    {
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                        id_playing = keyValue.Key;
+                    }
                 }
             }
         }   //TODO: da modificare: deve mandare il messaggio al primo disponibile
 
         public async void FineTurno() //TODO: controllo pareggi, gestione blackjack
         {
-            List<object> lst;
+            if(!alrExecuting)
+            {
+                alrExecuting = true;
+                List<object> lst;
 
-            //Controlli banco che deve fare almeno 17
-            if(_banco.GetMano().Item1 >= 17)
-            {
-                foreach (var client in _clientsConnected.Values)
+                //Controlli banco che deve fare almeno 17
+                if (_banco.GetMano().Item1 >= 17)
                 {
-                    client.Invia(GeneraMessaggio("unveil-card", null));
-                }
-            }
-            else
-            {
-                while (_banco.GetMano().Item1 < 17)
-                {
-                    lst = new List<object>();
-                    _banco.Carte.Add(_mazzo[0]);
-                    lst.Add(_banco);
-                    lst.Add(false);  //non nascondere la carta del dealer 
-                    Console.WriteLine((lst[0] as Place).Carte.Count);
                     foreach (var client in _clientsConnected.Values)
-                        client.Invia(GeneraMessaggio("new-cards-dealer", lst));
-                    _mazzo.RemoveAt(0);
-                    await Task.Delay(1500);
+                    {
+                        client.Invia(GeneraMessaggio("unveil-card", null));
+                    }
                 }
-            }
+                else
+                {
+                    while (_banco.GetMano().Item1 < 17)
+                    {
+                        lst = new List<object>();
+                        _banco.Carte.Add(_mazzo[0]);
+                        lst.Add(_banco);
+                        lst.Add(false);  //non nascondere la carta del dealer 
+                        Console.WriteLine((lst[0] as Place).Carte.Count);
+                        foreach (var client in _clientsConnected.Values)
+                            client.Invia(GeneraMessaggio("new-cards-dealer", lst));
+                        _mazzo.RemoveAt(0);
+                        await Task.Delay(1500);
+                    }
+                }
 
-            foreach(Place p in _posti)
-            {
-                clsClientUDP toSend = null;
-                (int, bool) mano_player = p.GetMano();
-                (int, bool) mano_banco = _banco.GetMano();
-                //determino il client corrispondente al posto
-                foreach (var keyValue in _nowPlaying)
+                foreach (Place p in _posti)
                 {
-                    if (keyValue.Value.Username == p.Player.Username)
+                    clsClientUDP toSend = null;
+                    (int, bool) mano_player = p.GetMano();
+                    (int, bool) mano_banco = _banco.GetMano();
+                    //determino il client corrispondente al posto
+                    foreach (var keyValue in _nowPlaying)
                     {
-                        toSend = _clientsConnected[keyValue.Key];
+                        if (keyValue.Value.Username == p.Player.Username)
+                        {
+                            toSend = _clientsConnected[keyValue.Key];
+                        }
+                    }
+                    if (toSend != null)
+                    {
+                        if (mano_player.Item1 > 21)  //giocatore sballa
+                        {
+                            toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                        }
+                        else if (mano_banco.Item1 > 21)
+                        {
+                            toSend.Invia(GeneraMessaggio("player-wins", null));
+                        }
+                        else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
+                        {
+                            toSend.Invia(GeneraMessaggio("draw", null));
+                        }
+                        else if (mano_player.Item2)  //blackjack player
+                        {
+                            toSend.Invia(GeneraMessaggio("player-wins", null));
+                        }
+                        else if (mano_banco.Item2)   //blackjack server
+                        {
+                            toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                        }
+                        else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
+                        {
+                            toSend.Invia(GeneraMessaggio("draw", null));
+                        }
+                        else if (mano_player.Item1 > mano_banco.Item1) //player > server
+                        {
+                            toSend.Invia(GeneraMessaggio("player-wins", null));
+                        }
+                        else    //server > player
+                        {
+                            toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                        }
                     }
                 }
-                if(toSend!=null)
-                {
-                    if (mano_player.Item1 > 21)  //giocatore sballa
-                    {
-                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                    }
-                    else if (mano_banco.Item1 > 21)
-                    {
-                        toSend.Invia(GeneraMessaggio("player-wins", null));
-                    }
-                    else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
-                    {
-                        toSend.Invia(GeneraMessaggio("draw", null));
-                    }
-                    else if (mano_player.Item2)  //blackjack player
-                    {
-                        toSend.Invia(GeneraMessaggio("player-wins", null));
-                    }
-                    else if (mano_banco.Item2)   //blackjack server
-                    {
-                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                    }
-                    else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
-                    {
-                        toSend.Invia(GeneraMessaggio("draw", null));
-                    }
-                    else if (mano_player.Item1 > mano_banco.Item1) //player > server
-                    {
-                        toSend.Invia(GeneraMessaggio("player-wins", null));
-                    }
-                    else    //server > player
-                    {
-                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                    }
-                }
+                await Task.Delay(5000);
+                _banco.Carte.Clear();
+                foreach (Place p in _posti)
+                    p.Carte.Clear();
+                if (_nowPlaying.Count != 0 || _lobby.Count != 0)
+                    NuovoTurno();
+                else
+                    gameStarted = false;
+                alrExecuting = false;
             }
-            await Task.Delay(5000);
-            _banco.Carte.Clear();
-            foreach (Place p in _posti)
-                p.Carte.Clear();
-            if (_nowPlaying.Count != 0 || _lobby.Count != 0)
-                NuovoTurno();
+            
         }
 
         //Terminato - Funzionante
@@ -395,23 +408,7 @@ namespace BlackJack_Server
 
 
         #region ping connessi
-        volatile bool canPing = false;
         System.Windows.Forms.Timer pingResponse;
-
-        private void Ping_Method()
-        {
-            canPing = true;
-            while (true)
-            {
-                if(canPing)
-                {
-                    PingConn();
-                    
-                    canPing = false;
-                }
-
-            }
-        }
 
         private void PingConn()
         {
@@ -427,7 +424,7 @@ namespace BlackJack_Server
             numPinged = _clientsConnected.Count;
             pingResponse = new System.Windows.Forms.Timer();
             pingResponse.Tick += PingResponse_Tick;
-            pingResponse.Interval = 5000;
+            pingResponse.Interval = 2000;
             pingResponse.Start();
         }
 
@@ -444,7 +441,17 @@ namespace BlackJack_Server
                     if(!_clientsPingResponse.Item2.Keys.Any(key => key == clientSentKey))
                     {
                         _clientsConnected.Remove(clientSentKey);
-                        
+                        if(id_playing == clientSentKey)
+                        {
+                            SwitchPlayer();
+                        }
+                        else
+                        {
+                            if (_nowPlaying.Keys.Any(c => c == clientSentKey))
+                                EliminaPlayer(clientSentKey,_nowPlaying[clientSentKey], "playing");
+                            else if(_lobby.Keys.Any(c => c == clientSentKey))
+                                EliminaPlayer(clientSentKey,_lobby[clientSentKey], "lobby");
+                        }
                     }
                 }
                 #if DEBUG
@@ -467,11 +474,69 @@ namespace BlackJack_Server
             {
                 case "ping-response":
                     int id_player = Convert.ToInt32(received.Data[0]);
-                    _clientsPingResponse.Item2.Add(id_player, _clientsPingResponse.Item1[id_player]);
-                    numPinged--;
+                    bool trovato = false;
+                    foreach (var chiave in _clientsPingResponse.Item2.Keys)
+                    {
+                        if(chiave == id_player)
+                        {
+                            trovato = true;
+                            break;
+                        }    
+                    }
+                    if(!trovato)
+                    {
+                        if(id_player != 0)  //dà problemi alcune volte
+                            _clientsPingResponse.Item2.Add(id_player, _clientsPingResponse.Item1[id_player]);
+                        numPinged--;
+                    }
+                        
                     break;
             }
         }
-#endregion
+        #endregion
+
+       private async void SwitchPlayer()
+        {
+            await Task.Delay(1);
+            int pos = _posti.Find(p => p.Player.Username == _nowPlaying[id_playing].Username).Posizione;
+            _posti.Remove(_posti.Find(p => p.Player == _nowPlaying[id_playing]));
+            Form1.playersConnected.Remove(Form1.playersConnected.Find(player => player.Username == _nowPlaying[id_playing].Username));
+            _nowPlaying.Remove(id_playing);
+            _havePlayed++;
+            List<object> lst = new List<object>();
+            lst.Add(pos);
+            foreach (clsClientUDP client in _clientsConnected.Values)
+            {
+                client.Invia(GeneraMessaggio("player-leave", lst));
+            }
+            if (_havePlayed > _nowPlaying.Count)
+                FineTurno();
+            else
+                StartPlayerTurn(_havePlayed+1);
+        }
+
+        private async void EliminaPlayer(int id, Player toDelete, string status)
+        {
+            //await Task.Delay(1);
+            int pos = _posti.Find(p => p.Player.Username == toDelete.Username).Posizione;
+            _posti.Remove(_posti.Find(p => p.Player.Username == toDelete.Username));
+            Form1.playersConnected.Remove(Form1.playersConnected.Find(player => player.Username == toDelete.Username));
+            if (status == "playing")
+            {
+                _nowPlaying.Remove(id);
+            }
+            else
+            {
+                _lobby.Remove(id);
+            }
+            List<object> lst = new List<object>();
+            lst.Add(pos);
+            foreach (clsClientUDP client in _clientsConnected.Values)
+            {
+                client.Invia(GeneraMessaggio("player-leave", lst));
+            }
+        }
     }
+
+    
 }
