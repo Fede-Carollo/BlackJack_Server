@@ -26,8 +26,7 @@ namespace BlackJack_Server
         private Place _banco;
         public bool gameStarted;
         private int id_playing;
-        private volatile int numPinged;
-        private Thread thPing;
+        private int numPinged;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -51,13 +50,8 @@ namespace BlackJack_Server
             server.datiRicevutiEvent += Server_pingEvent;
             gameStarted = false;
             
-
-            
             numPinged = 0;
-            //PingConn();
-
-            thPing = new Thread(Ping_Method);
-            thPing.Start();
+            PingConn();
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)
@@ -412,7 +406,7 @@ namespace BlackJack_Server
             {
                 if(canPing)
                 {
-                    //PingConn();
+                    PingConn();
                     
                     canPing = false;
                 }
@@ -428,9 +422,9 @@ namespace BlackJack_Server
                 client.Value.Invia(GeneraMessaggio("ping"));
                 _clientsPingResponse.Item1.Add(client.Key, client.Value);
             }
-#if DEBUG
+            #if DEBUG
             Console.WriteLine($"ping inviato a {_clientsConnected.Count} client");
-#endif
+            #endif
             numPinged = _clientsConnected.Count;
             pingResponse = new System.Windows.Forms.Timer();
             pingResponse.Tick += PingResponse_Tick;
@@ -440,9 +434,9 @@ namespace BlackJack_Server
 
         private void PingResponse_Tick(object sender, EventArgs e)
         {
-#if DEBUG
+            #if DEBUG
             Console.WriteLine($"Non hanno risposto {numPinged}");
-#endif
+            #endif
             if(numPinged>0)
             {
                 //TODO: qualcuno non ha risposto >:(
@@ -453,14 +447,15 @@ namespace BlackJack_Server
                         _clientsConnected.Remove(clientSentKey);
                     }
                 }
-#if DEBUG
+                #if DEBUG
                 foreach (var item in _clientsConnected.Keys)
                     Console.WriteLine(item);
-#endif
+                #endif
 
             }
             pingResponse.Stop();
-            canPing = true;
+            //canPing = true;
+            PingConn();
         }
 
         private void Server_pingEvent(ClsMessaggio message)
