@@ -257,7 +257,7 @@ namespace BlackJack_Server
             }
         }   //TODO: da modificare: deve mandare il messaggio al primo disponibile
 
-        public void FineTurno() //TODO: controllo pareggi, gestione blackjack
+        public async void FineTurno() //TODO: controllo pareggi, gestione blackjack
         {
             List<object> lst;
 
@@ -281,7 +281,7 @@ namespace BlackJack_Server
                     foreach (var client in _clientsConnected.Values)
                         client.Invia(GeneraMessaggio("new-cards-dealer", lst));
                     _mazzo.RemoveAt(0);
-                    Thread.Sleep(1500);
+                    await Task.Delay(1500);
                 }
             }
 
@@ -334,12 +334,11 @@ namespace BlackJack_Server
                     }
                 }
             }
-            Thread.Sleep(5000);
-
+            await Task.Delay(5000);
             _banco.Carte.Clear();
             foreach (Place p in _posti)
                 p.Carte.Clear();
-            if(_nowPlaying.Count != 0 || _lobby.Count != 0)
+            if (_nowPlaying.Count != 0 || _lobby.Count != 0)
                 NuovoTurno();
         }
 
@@ -445,6 +444,7 @@ namespace BlackJack_Server
                     if(!_clientsPingResponse.Item2.Keys.Any(key => key == clientSentKey))
                     {
                         _clientsConnected.Remove(clientSentKey);
+                        
                     }
                 }
                 #if DEBUG
