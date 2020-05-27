@@ -31,6 +31,7 @@ namespace BlackJack_Server
             server = new clsServerUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 7777);
             p_controller = new Player_Controller();
             playersConnected = new List<Player>();
+            this.Visible = false;
         }
 
         private void Form1_Load(object sender, EventArgs e)

@@ -176,8 +176,8 @@ namespace BlackJack_Server
             {
                 posto.Carte = new List<Card>();
                 List<object> lst = new List<object>();
-                /*
-#if DEBUG
+               
+/*#if DEBUG
                 if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
                 {
                     posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
@@ -192,8 +192,8 @@ namespace BlackJack_Server
                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
                 }
-#else
-*/
+#else */
+
                 for (int i = 0; i < 2; i++)
                 {
                     posto.Carte.Add(_mazzo[0]);
@@ -485,7 +485,15 @@ namespace BlackJack_Server
                     }
                     if(!trovato)
                     {
-                        if(id_player != 0)  //dà problemi alcune volte
+                        foreach (int keys in _clientsPingResponse.Item1.Keys)
+                        {
+                            if(keys == id_player)
+                            {
+                                trovato = true;
+                                break;
+                            }
+                        }
+                        if(id_player != 0 && trovato)  //dà problemi alcune volte
                             _clientsPingResponse.Item2.Add(id_player, _clientsPingResponse.Item1[id_player]);
                         numPinged--;
                     }

@@ -35,22 +35,22 @@ namespace BlackJack_Server
             bool isBlackJack = false;
             if(this.Carte.Count == 2)
             {
-                if(Carte[0].Numero == 1 && (Carte[0].Seme == 'f' || Carte[0].Seme == 'p'))
+                if(Carte[0].Numero == 1 /*&& (Carte[0].Seme == 'f' || Carte[0].Seme == 'p')*/)
                 {
-                    if(Carte[1].Valore == 10 && (Carte[1].Seme == 'f' || Carte[1].Seme == 'p'))
+                    if(Carte[1].Valore == 10 /*&& (Carte[1].Seme == 'f' || Carte[1].Seme == 'p')*/)
                     {
                         return (21, true);
                     } 
                 }
-                else if (Carte[1].Numero == 1 && (Carte[1].Seme == 'f' || Carte[1].Seme == 'p'))
+                else if (Carte[1].Numero == 1 /*&& (Carte[1].Seme == 'f' || Carte[1].Seme == 'p')*/)
                 {
-                    if (Carte[1].Valore == 10 && (Carte[1].Seme == 'f' || Carte[1].Seme == 'p'))
+                    if (Carte[1].Valore == 10 /*&& (Carte[1].Seme == 'f' || Carte[1].Seme == 'p')*/)
                     {
                         return (21, true);
                     }
                 }
             }
-            List<Card> assi = new List<Card>(); //asso vale 11 se non sballa
+            List<Card> assi = new List<Card>(); //asso vale 11 se non sballa, quindi va valutato al fondo
             foreach (Card carta in _carte)
             {
                 if (carta.Numero == 1)
