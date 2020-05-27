@@ -192,7 +192,7 @@ namespace BlackJack_Server
                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
                 }
-#else */
+#else*/
 
                 for (int i = 0; i < 2; i++)
                 {
@@ -204,21 +204,6 @@ namespace BlackJack_Server
                 ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
                 foreach (clsClientUDP client in _clientsConnected.Values)
                     client.Invia(mex);
-                (int, bool) mano = posto.GetMano();
-                if(mano.Item1 == 21)
-                {
-                    lst = new List<object>();
-                    lst.Add(mano.Item2);
-                    foreach (var client in _clientsConnected.Values)
-                    {
-                         client.Invia(GeneraMessaggio("hand-twentyone-first", lst));
-                        _havePlayed++;
-                        if (_havePlayed != _nowPlaying.Count)
-                            StartPlayerTurn(_havePlayed + 1);
-                        else
-                            FineTurno();
-                    }
-                }
             }
             //generazione carte banco
             List<object> list = new List<object>();
@@ -240,14 +225,33 @@ namespace BlackJack_Server
         private void StartPlayerTurn(int pos)
         {
             Place p;
+            bool hasBj;
+            (int, bool) mano = (0, false);
             do
             {
+                hasBj = false;
                 p = _posti.Find(pl => pl.Posizione == pos);
                 if (p == null)
                     pos++;
+                else
+                {
+                    mano = p.GetMano();
+                    if (mano.Item1 == 21)
+                    {
+                        //TODO: inviare black-jack al giocatore
+                        foreach (int chiave in _nowPlaying.Keys)
+                        {
+                            if (_nowPlaying[chiave].Username == p.Player.Username)
+                                _clientsConnected[chiave].Invia(GeneraMessaggio("blackjack"));
+                        }
+                        hasBj = true;
+                        pos++;
+                    }
+                }
+                
             }
-            while (p == null && pos <= 4);
-            if (pos>4)    //TODO: pensare al controllo di pos
+            while (p == null && pos <= 4 || hasBj && pos <=4);
+            if (pos>4)   
                 FineTurno();
             else
             {
@@ -260,12 +264,13 @@ namespace BlackJack_Server
                     }
                 }
             }
-        }   //TODO: da modificare: deve mandare il messaggio al primo disponibile
+        }
 
-        public async void FineTurno() //TODO: controllo pareggi, gestione blackjack
+        public async void FineTurno()
         {
-            if(!alrExecuting)
-            {
+            //if (!alrExecuting)
+            //{
+                Console.WriteLine("eseguo fine turno");
                 alrExecuting = true;
                 List<object> lst;
 
@@ -350,8 +355,10 @@ namespace BlackJack_Server
                     NuovoTurno();
                 else
                     gameStarted = false;
-                alrExecuting = false;
-            }
+                //alrExecuting = false;
+            //}
+            //else
+                Console.WriteLine("non eseguo un bel niente");
             
         }
 
@@ -525,7 +532,7 @@ namespace BlackJack_Server
 
         private async void EliminaPlayer(int id, Player toDelete, string status)
         {
-            //await Task.Delay(1);
+            await Task.Delay(1);
             int pos = _posti.Find(p => p.Player.Username == toDelete.Username).Posizione;
             _posti.Remove(_posti.Find(p => p.Player.Username == toDelete.Username));
             Form1.playersConnected.Remove(Form1.playersConnected.Find(player => player.Username == toDelete.Username));
