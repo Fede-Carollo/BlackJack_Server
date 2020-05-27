@@ -250,7 +250,7 @@ namespace BlackJack_Server
                 }
                 
             }
-            while (p == null && pos <= 4 || hasBj && pos <=4);
+            while ((p == null && pos <= 4) || (hasBj && pos <=4));
             if (pos>4)   
                 FineTurno();
             else
@@ -268,97 +268,91 @@ namespace BlackJack_Server
 
         public async void FineTurno()
         {
-            //if (!alrExecuting)
-            //{
-                Console.WriteLine("eseguo fine turno");
-                alrExecuting = true;
-                List<object> lst;
+            Console.WriteLine("eseguo fine turno");
+            alrExecuting = true;
+            List<object> lst;
 
-                //Controlli banco che deve fare almeno 17
-                if (_banco.GetMano().Item1 >= 17)
+            //Controlli banco che deve fare almeno 17
+            if (_banco.GetMano().Item1 >= 17)
+            {
+                foreach (var client in _clientsConnected.Values)
                 {
+                    client.Invia(GeneraMessaggio("unveil-card", null));
+                }
+            }
+            else
+            {
+                while (_banco.GetMano().Item1 < 17)
+                {
+                    lst = new List<object>();
+                    _banco.Carte.Add(_mazzo[0]);
+                    lst.Add(_banco);
+                    lst.Add(false);  //non nascondere la carta del dealer 
+                    Console.WriteLine((lst[0] as Place).Carte.Count);
                     foreach (var client in _clientsConnected.Values)
-                    {
-                        client.Invia(GeneraMessaggio("unveil-card", null));
-                    }
+                        client.Invia(GeneraMessaggio("new-cards-dealer", lst));
+                    _mazzo.RemoveAt(0);
+                    await Task.Delay(1500);
                 }
-                else
-                {
-                    while (_banco.GetMano().Item1 < 17)
-                    {
-                        lst = new List<object>();
-                        _banco.Carte.Add(_mazzo[0]);
-                        lst.Add(_banco);
-                        lst.Add(false);  //non nascondere la carta del dealer 
-                        Console.WriteLine((lst[0] as Place).Carte.Count);
-                        foreach (var client in _clientsConnected.Values)
-                            client.Invia(GeneraMessaggio("new-cards-dealer", lst));
-                        _mazzo.RemoveAt(0);
-                        await Task.Delay(1500);
-                    }
-                }
+            }
 
-                foreach (Place p in _posti)
+            foreach (Place p in _posti)
+            {
+                clsClientUDP toSend = null;
+                (int, bool) mano_player = p.GetMano();
+                (int, bool) mano_banco = _banco.GetMano();
+                //determino il client corrispondente al posto
+                foreach (var keyValue in _nowPlaying)
                 {
-                    clsClientUDP toSend = null;
-                    (int, bool) mano_player = p.GetMano();
-                    (int, bool) mano_banco = _banco.GetMano();
-                    //determino il client corrispondente al posto
-                    foreach (var keyValue in _nowPlaying)
+                    if (keyValue.Value.Username == p.Player.Username)
                     {
-                        if (keyValue.Value.Username == p.Player.Username)
-                        {
-                            toSend = _clientsConnected[keyValue.Key];
-                        }
-                    }
-                    if (toSend != null)
-                    {
-                        if (mano_player.Item1 > 21)  //giocatore sballa
-                        {
-                            toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                        }
-                        else if (mano_banco.Item1 > 21)
-                        {
-                            toSend.Invia(GeneraMessaggio("player-wins", null));
-                        }
-                        else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
-                        {
-                            toSend.Invia(GeneraMessaggio("draw", null));
-                        }
-                        else if (mano_player.Item2)  //blackjack player
-                        {
-                            toSend.Invia(GeneraMessaggio("player-wins", null));
-                        }
-                        else if (mano_banco.Item2)   //blackjack server
-                        {
-                            toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                        }
-                        else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
-                        {
-                            toSend.Invia(GeneraMessaggio("draw", null));
-                        }
-                        else if (mano_player.Item1 > mano_banco.Item1) //player > server
-                        {
-                            toSend.Invia(GeneraMessaggio("player-wins", null));
-                        }
-                        else    //server > player
-                        {
-                            toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                        }
+                        toSend = _clientsConnected[keyValue.Key];
                     }
                 }
-                await Task.Delay(5000);
-                _banco.Carte.Clear();
-                foreach (Place p in _posti)
-                    p.Carte.Clear();
-                if (_nowPlaying.Count != 0 || _lobby.Count != 0)
-                    NuovoTurno();
-                else
-                    gameStarted = false;
-                //alrExecuting = false;
-            //}
-            //else
-                Console.WriteLine("non eseguo un bel niente");
+                if (toSend != null)
+                {
+                    if (mano_player.Item1 > 21)  //giocatore sballa
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    }
+                    else if (mano_banco.Item1 > 21)
+                    {
+                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                    }
+                    else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
+                    {
+                        toSend.Invia(GeneraMessaggio("draw", null));
+                    }
+                    else if (mano_player.Item2)  //blackjack player
+                    {
+                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                    }
+                    else if (mano_banco.Item2)   //blackjack server
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    }
+                    else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
+                    {
+                        toSend.Invia(GeneraMessaggio("draw", null));
+                    }
+                    else if (mano_player.Item1 > mano_banco.Item1) //player > server
+                    {
+                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                    }
+                    else    //server > player
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                    }
+                }
+            }
+            await Task.Delay(5000);
+            _banco.Carte.Clear();
+            foreach (Place p in _posti)
+                p.Carte.Clear();
+            if (_nowPlaying.Count != 0 || _lobby.Count != 0)
+                NuovoTurno();
+            else
+                gameStarted = false;
             
         }
 
