@@ -430,7 +430,7 @@ namespace BlackJack_Server
                         lst = new List<object>();
                         lst.Add(_posti.Count - 1 > 0);
                         _clientsConnected[id_pl].Invia(GeneraMessaggio("no-fiches", lst));
-                        //EliminaPlayer(id_pl, p.Player, "playing");
+                        EliminaPlayer(id_pl, p.Player, "playing");
                     }
                 }
             }
@@ -602,21 +602,24 @@ namespace BlackJack_Server
         private async void SwitchPlayer()
         {
             await Task.Delay(1);
-            int pos = _posti.Find(p => p.Player.Username == _nowPlaying[id_playing].Username).Posizione;
-            _posti.Remove(_posti.Find(p => p.Player == _nowPlaying[id_playing]));
-            Form1.playersConnected.Remove(Form1.playersConnected.Find(player => player.Username == _nowPlaying[id_playing].Username));
-            _nowPlaying.Remove(id_playing);
-            _havePlayed++;
-            List<object> lst = new List<object>();
-            lst.Add(pos);
-            foreach (clsClientUDP client in _clientsConnected.Values)
+            if(_posti.Any(p => p.Player.Username == _nowPlaying[id_playing].Username))
             {
-                client.Invia(GeneraMessaggio("player-leave", lst));
+                int pos = _posti.Find(p => p.Player.Username == _nowPlaying[id_playing].Username).Posizione;
+                _posti.Remove(_posti.Find(p => p.Player == _nowPlaying[id_playing]));
+                Form1.playersConnected.Remove(Form1.playersConnected.Find(player => player.Username == _nowPlaying[id_playing].Username));
+                _nowPlaying.Remove(id_playing);
+                _havePlayed++;
+                List<object> lst = new List<object>();
+                lst.Add(pos);
+                foreach (clsClientUDP client in _clientsConnected.Values)
+                {
+                    client.Invia(GeneraMessaggio("player-leave", lst));
+                }
             }
             if (_havePlayed > _nowPlaying.Count)
                 FineTurno();
             else
-                StartPlayerTurn(_havePlayed+1);
+                StartPlayerTurn(_havePlayed + 1);
         }
 
         private async void EliminaPlayer(int id, Player toDelete, string status)
