@@ -28,6 +28,7 @@ namespace BlackJack_Server
         private int id_playing;
         private int numPinged;
         private bool alrExecuting;
+        private int playersBet;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -51,6 +52,7 @@ namespace BlackJack_Server
             server.datiRicevutiEvent += Server_pingEvent;
             gameStarted = false;
             alrExecuting = false;
+            playersBet = 0;
             
             numPinged = 0;
             PingConn();
@@ -64,18 +66,63 @@ namespace BlackJack_Server
             ObjMex objToSend = new ObjMex();
             received = JsonConvert.DeserializeObject<ObjMex>(ricevuti[2]);
             int id_player;
-            Place p;
             switch(received.Action)
             {
-                default:
+                case "player-bet":
+                    int posizione_tavolo = Convert.ToInt32(received.Data[0]);
+                    int puntata = Convert.ToInt32(received.Data[1]);
+                    _posti.Find(p=> p.Posizione == posizione_tavolo).Fiches -= puntata;
+                    _posti.Find(p => p.Posizione == posizione_tavolo).Puntata = puntata;
+                    playersBet++;
+                    List<object> lst = new List<object>();
+                    if (playersBet == _nowPlaying.Count)
+                    {
+                        playersBet = 0;
+                        foreach (Place posto in _posti)
+                        {
+                            posto.Carte = new List<Card>();
+                            lst = new List<object>();
+
+                            #region forza bj
+                            /*#if DEBUG
+                                            if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
+                                            {
+                                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
+                                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
+                                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
+                                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
+                                            }
+                                            else
+                                            {
+                                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
+                                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
+                                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
+                                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
+                                            }
+                            #else*/
+                            #endregion
+
+                            for (int i = 0; i < 2; i++)
+                            {
+                                posto.Carte.Add(_mazzo[0]);
+                                _mazzo.RemoveAt(0);
+                            }
+                            //#endif
+                            lst.Add(posto);
+                            ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
+                            foreach (clsClientUDP client in _clientsConnected.Values)
+                                client.Invia(mex);
+                        }
+                        StartPlayerTurn(_havePlayed + 1);
+                    }
                     break;
 
                 case "player-hit": 
-                    int posizione_tavolo = Convert.ToInt32(received.Data[0]);
+                    posizione_tavolo = Convert.ToInt32(received.Data[0]);
                     id_player = Convert.ToInt32(received.Data[1]);
                     _posti.Find(pl => pl.Posizione == posizione_tavolo).Carte.Add(_mazzo[0]);
                     _mazzo.RemoveAt(0);
-                    List<object> lst = new List<object>();
+                    lst = new List<object>();
                     foreach (Place posto in _posti)
                     {
                         if(posto.Posizione == posizione_tavolo)
@@ -126,6 +173,7 @@ namespace BlackJack_Server
                     else
                         StartPlayerTurn(_havePlayed + 1);
                     break;
+
             }
         }
 
@@ -165,47 +213,11 @@ namespace BlackJack_Server
             }
             foreach (int key in _nowPlaying.Keys)
             {
-                _clientsConnected[key].Invia(GeneraMessaggio("new-turn", null));
-            }
-            _lobby = new Dictionary<int, Player>();
-            _havePlayed = 0;
-            CaricaMazzo();
-            ShuffleMazzo();
-            //generazione carte per ogni giocatore
-            foreach (Place posto in _posti)
-            {
-                posto.Carte = new List<Card>();
-                List<object> lst = new List<object>();
-               
-/*#if DEBUG
-                if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
-                {
-                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
-                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
-                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
-                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
-                }
-                else
-                {
-                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
-                    posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
-                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
-                    _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
-                }
-#else*/
-
-                for (int i = 0; i < 2; i++)
-                {
-                    posto.Carte.Add(_mazzo[0]);
-                    _mazzo.RemoveAt(0);
-                }
-//#endif
-                lst.Add(posto);
-                ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
-                foreach (clsClientUDP client in _clientsConnected.Values)
-                    client.Invia(mex);
+                _clientsConnected[key].Invia(GeneraMessaggio("new-turn"));
             }
             //generazione carte banco
+            CaricaMazzo();
+            ShuffleMazzo();
             List<object> list = new List<object>();
             for (int i = 0; i < 2; i++)
             {
@@ -218,8 +230,59 @@ namespace BlackJack_Server
             Console.WriteLine((list[0] as Place).Carte.Count);
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(mess);
+            _lobby = new Dictionary<int, Player>();
+            _havePlayed = 0;
+            #region da cancellare
+            //generazione carte per ogni giocatore
+            /*            foreach (Place posto in _posti)
+                        {
+                            posto.Carte = new List<Card>();
+                            List<object> lst = new List<object>();
 
-            StartPlayerTurn(_havePlayed+1);
+            /*#if DEBUG
+                            if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
+                            {
+                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
+                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
+                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
+                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 13));
+                            }
+                            else
+                            {
+                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
+                                posto.Carte.Add(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
+                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
+                                _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
+                            }
+            #else
+
+                            for (int i = 0; i < 2; i++)
+                            {
+                                posto.Carte.Add(_mazzo[0]);
+                                _mazzo.RemoveAt(0);
+                            }
+            //#endif
+                            lst.Add(posto);
+                            ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
+                            foreach (clsClientUDP client in _clientsConnected.Values)
+                                client.Invia(mex);
+                        }
+                        //generazione carte banco
+                        List<object> list = new List<object>();
+                        for (int i = 0; i < 2; i++)
+                        {
+                            _banco.Carte.Add(_mazzo[0]);
+                            _mazzo.RemoveAt(0);
+                        }
+                        list.Add(_banco);
+                        list.Add(true);     //nascondi carta
+                        ClsMessaggio mess = GeneraMessaggio("new-cards-dealer", list);
+                        Console.WriteLine((list[0] as Place).Carte.Count);
+                        foreach (clsClientUDP client in _clientsConnected.Values)
+                            client.Invia(mess);
+
+                        StartPlayerTurn(_havePlayed+1);*/
+            #endregion
         }
 
         private void StartPlayerTurn(int pos)
@@ -311,37 +374,63 @@ namespace BlackJack_Server
                 }
                 if (toSend != null)
                 {
-                    if (mano_player.Item1 > 21)  //giocatore sballa
+                    lst = new List<object>();
+                    if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
                     {
-                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
-                    }
-                    else if (mano_banco.Item1 > 21)
-                    {
-                        toSend.Invia(GeneraMessaggio("player-wins", null));
-                    }
-                    else if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
-                    {
-                        toSend.Invia(GeneraMessaggio("draw", null));
+                        p.Fiches += p.Puntata;
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("draw", lst));
                     }
                     else if (mano_player.Item2)  //blackjack player
                     {
-                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                        p.Fiches += p.Puntata * (5/2);
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("player-wins"));
                     }
                     else if (mano_banco.Item2)   //blackjack server
                     {
-                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("dealer-wins"));
+                    }
+                    else if (mano_player.Item1 > 21)  //giocatore sballa
+                    {
+                        toSend.Invia(GeneraMessaggio("dealer-wins"));
+                    }
+                    else if (mano_banco.Item1 > 21)
+                    {
+                        p.Fiches += p.Puntata * 2;
+                        toSend.Invia(GeneraMessaggio("player-wins"));
                     }
                     else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
                     {
-                        toSend.Invia(GeneraMessaggio("draw", null));
+                        p.Fiches += p.Puntata;
+                        toSend.Invia(GeneraMessaggio("draw"));
                     }
                     else if (mano_player.Item1 > mano_banco.Item1) //player > server
                     {
-                        toSend.Invia(GeneraMessaggio("player-wins", null));
+                        p.Fiches += p.Puntata*2;
+                        toSend.Invia(GeneraMessaggio("player-wins"));
                     }
                     else    //server > player
                     {
-                        toSend.Invia(GeneraMessaggio("dealer-wins", null));
+                        toSend.Invia(GeneraMessaggio("dealer-wins"));
+                    }
+                    //TODO: eliminare giocatore se non ha più fiches
+                    if(p.Fiches == 0)
+                    {
+                        int id_pl = 0;
+                        foreach (int id_player in _nowPlaying.Keys)
+                        {
+                            if (_nowPlaying[id_player].Username == p.Player.Username)
+                            {
+                                id_pl = id_player;
+                                break;
+                            }
+                        }
+                        lst = new List<object>();
+                        lst.Add(_posti.Count - 1 > 0);
+                        _clientsConnected[id_pl].Invia(GeneraMessaggio("no-fiches", lst));
+                        //EliminaPlayer(id_pl, p.Player, "playing");
                     }
                 }
             }
@@ -373,6 +462,8 @@ namespace BlackJack_Server
             toSend.Messaggio = JsonConvert.SerializeObject(objMex);
             return toSend;
         }
+
+        #region metodi mazzo
 
         //Terminato - funzionante
         private void CaricaMazzo()
@@ -407,6 +498,7 @@ namespace BlackJack_Server
             }
         }
 
+        #endregion
 
         #region ping connessi
         System.Windows.Forms.Timer pingResponse;
@@ -504,7 +596,10 @@ namespace BlackJack_Server
         }
         #endregion
 
-       private async void SwitchPlayer()
+
+        #region gestione player leave
+
+        private async void SwitchPlayer()
         {
             await Task.Delay(1);
             int pos = _posti.Find(p => p.Player.Username == _nowPlaying[id_playing].Username).Posizione;
@@ -545,6 +640,8 @@ namespace BlackJack_Server
                 client.Invia(GeneraMessaggio("player-leave", lst));
             }
         }
+
+        #endregion
     }
 
     
