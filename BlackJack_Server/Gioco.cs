@@ -74,7 +74,9 @@ namespace BlackJack_Server
                 case "player-stand":
                     PlayerStand(received.Data[0]);
                     break;
-
+                case "double-bet":
+                    DoubleBet(received.Data);
+                    break;
             }
         }
 
@@ -276,6 +278,13 @@ namespace BlackJack_Server
                 StartPlayerTurn(_havePlayed + 1);
         }
 
+        private void DoubleBet(List<object> lst)
+        {
+            int pos_tavolo = Convert.ToInt32(lst[0]);
+            _posti.Find(p=> p.Posizione == pos_tavolo).Puntata *= 2;
+            PlayerHit(lst);
+        }
+
         #endregion
 
 
@@ -416,8 +425,7 @@ namespace BlackJack_Server
                     }
                     p.Puntata = 0;
                     Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
-                    #endregion
-                    //TODO: eliminare giocatore se non ha più fiches
+                    
                     if (p.Fiches == 0)
                     {
                         int id_pl = 0;
@@ -434,6 +442,7 @@ namespace BlackJack_Server
                         EliminaPlayer(id_pl, p.Player, "playing");
                     }
                 }
+                #endregion
             }
             await Task.Delay(5000);
             _banco.Carte.Clear();
