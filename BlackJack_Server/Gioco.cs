@@ -430,8 +430,7 @@ namespace BlackJack_Server
                             }
                         }
                         lst = new List<object>();
-                        lst.Add(_posti.Count - 1 > 0);
-                        _clientsConnected[id_pl].Invia(GeneraMessaggio("no-fiches", lst));
+                        _clientsConnected[id_pl].Invia(GeneraMessaggio("no-fiches"));
                         EliminaPlayer(id_pl, p.Player, "playing");
                     }
                 }
