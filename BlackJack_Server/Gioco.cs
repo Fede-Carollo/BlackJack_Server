@@ -15,6 +15,9 @@ namespace BlackJack_Server
 {
     public class Gioco
     {
+
+        #region variabili e prop
+
         private List<Card> _mazzo;
         private clsServerUDP _server;
         private int _havePlayed;
@@ -37,6 +40,8 @@ namespace BlackJack_Server
         internal clsServerUDP Server { get => _server; set => _server = value; }
         public List<Card> Mazzo { get => _mazzo; set => _mazzo = value; }
         public Place Banco { get => _banco; set => _banco = value; }
+
+        #endregion
 
         internal Gioco(clsServerUDP server)
         {
@@ -80,20 +85,7 @@ namespace BlackJack_Server
             }
         }
 
-        private void GiveCards()
-        {
-            foreach (Place posto in _posti)
-            {
-                if(posto.Carte.Count>0)
-                {
-                    List<object> lst = new List<object>();
-                    lst.Add(posto);
-                    ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
-                    foreach (clsClientUDP client in _clientsConnected.Values)
-                        client.Invia(mex);
-                }
-            }
-        }
+        #region gestione carte giocatori prima mano
 
         private void GeneraCartePlayers()
         {
@@ -130,6 +122,25 @@ namespace BlackJack_Server
                 
             }
         }
+
+        private void GiveCards()
+        {
+            foreach (Place posto in _posti)
+            {
+                if (posto.Carte.Count > 0)
+                {
+                    List<object> lst = new List<object>();
+                    lst.Add(posto);
+                    ClsMessaggio mex = GeneraMessaggio("new-cards", lst);
+                    foreach (clsClientUDP client in _clientsConnected.Values)
+                        client.Invia(mex);
+                }
+            }
+        }
+
+        #endregion
+
+        #region updates
 
         internal void UpdateGraphicsPlayer_dealer(Player player)
         {
@@ -169,6 +180,10 @@ namespace BlackJack_Server
             }
         }
 
+        #endregion
+
+        #region gestione turno
+
         public void NuovoTurno()
         {
             gameStarted = true;
@@ -201,6 +216,174 @@ namespace BlackJack_Server
             _havePlayed = 0;
             GeneraCartePlayers();
         }
+
+        private void StartPlayerTurn(int pos)
+        {
+            Place p;
+            bool hasBj;
+            (int, bool) mano = (0, false);
+            do
+            {
+                hasBj = false;
+                p = _posti.Find(pl => pl.Posizione == pos);
+                if (p == null)
+                    pos++;
+                else
+                {
+                    mano = p.GetMano();
+                    if (mano.Item1 == 21)
+                    {
+                        foreach (int chiave in _nowPlaying.Keys)
+                        {
+                            if (_nowPlaying[chiave].Username == p.Player.Username)
+                                _clientsConnected[chiave].Invia(GeneraMessaggio("blackjack"));
+                        }
+                        hasBj = true;
+                        pos++;
+                    }
+                }
+
+            }
+            while ((p == null && pos <= 4) || (hasBj && pos <= 4));
+            if (pos > 4)
+                FineTurno();
+            else
+            {
+                foreach (var keyValue in _nowPlaying)
+                {
+                    if (keyValue.Value.Username == p.Player.Username)
+                    {
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                        id_playing = keyValue.Key;
+                    }
+                }
+            }
+        }
+
+        public async void FineTurno()
+        {
+            Console.WriteLine("eseguo fine turno");
+            List<object> lst;
+
+            //Controlli banco che deve fare almeno 17
+            if (_banco.GetMano().Item1 >= 17)
+            {
+                foreach (var client in _clientsConnected.Values)
+                {
+                    client.Invia(GeneraMessaggio("unveil-card", null));
+                }
+            }
+            else
+            {
+                while (_banco.GetMano().Item1 < 17)
+                {
+                    lst = new List<object>();
+                    _banco.Carte.Add(_mazzo[0]);
+                    lst.Add(_banco);
+                    lst.Add(false);  //non nascondere la carta del dealer 
+                    Console.WriteLine((lst[0] as Place).Carte.Count);
+                    foreach (var client in _clientsConnected.Values)
+                        client.Invia(GeneraMessaggio("new-cards-dealer", lst));
+                    _mazzo.RemoveAt(0);
+                    await Task.Delay(1500);
+                }
+            }
+            #region vittoria sconfitta player
+            foreach (Place p in _posti)
+            {
+                clsClientUDP toSend = null;
+                (int, bool) mano_player = p.GetMano();
+                (int, bool) mano_banco = _banco.GetMano();
+                //determino il client corrispondente al posto
+                foreach (var keyValue in _nowPlaying)
+                {
+                    if (keyValue.Value.Username == p.Player.Username)
+                    {
+                        toSend = _clientsConnected[keyValue.Key];
+                    }
+                }
+                if (toSend != null)
+                {
+                    lst = new List<object>();
+                    Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
+                    if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
+                    {
+                        p.Fiches += p.Puntata;
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("draw", lst));
+                    }
+                    else if (mano_player.Item2)  //blackjack player
+                    {
+                        p.Fiches += p.Puntata * (5 / 2);
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("player-wins", lst));
+                    }
+                    else if (mano_banco.Item2)   //blackjack server
+                    {
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("dealer-wins", lst));
+                    }
+                    else if (mano_player.Item1 > 21)  //giocatore sballa
+                    {
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("dealer-wins", lst));
+                    }
+                    else if (mano_banco.Item1 > 21)
+                    {
+                        p.Fiches += p.Puntata * 2;
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("player-wins", lst));
+                    }
+                    else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
+                    {
+                        p.Fiches += p.Puntata;
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("draw", lst));
+                    }
+                    else if (mano_player.Item1 > mano_banco.Item1) //player > server
+                    {
+                        p.Fiches += p.Puntata * 2;
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("player-wins", lst));
+                    }
+                    else    //server > player
+                    {
+                        lst.Add(p.Fiches);
+                        toSend.Invia(GeneraMessaggio("dealer-wins", lst));
+                    }
+                    p.Puntata = 0;
+                    Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
+
+                    if (p.Fiches == 0)
+                    {
+                        int id_pl = 0;
+                        foreach (int id_player in _nowPlaying.Keys)
+                        {
+                            if (_nowPlaying[id_player].Username == p.Player.Username)
+                            {
+                                id_pl = id_player;
+                                break;
+                            }
+                        }
+                        lst = new List<object>();
+                        _clientsConnected[id_pl].Invia(GeneraMessaggio("no-fiches"));
+                        EliminaPlayer(id_pl, p.Player, "playing");
+                    }
+                }
+                #endregion
+            }
+            await Task.Delay(5000);
+            _banco.Carte.Clear();
+            foreach (Place p in _posti)
+                p.Carte.Clear();
+            if (_nowPlaying.Count != 0 || _lobby.Count != 0)
+                NuovoTurno();
+            else
+                gameStarted = false;
+
+        }
+
+        #endregion
 
         #region metodi switch
 
@@ -286,174 +469,6 @@ namespace BlackJack_Server
         }
 
         #endregion
-
-
-        private void StartPlayerTurn(int pos)
-        {
-            Place p;
-            bool hasBj;
-            (int, bool) mano = (0, false);
-            do
-            {
-                hasBj = false;
-                p = _posti.Find(pl => pl.Posizione == pos);
-                if (p == null)
-                    pos++;
-                else
-                {
-                    mano = p.GetMano();
-                    if (mano.Item1 == 21)
-                    {
-                        //TODO: inviare black-jack al giocatore
-                        foreach (int chiave in _nowPlaying.Keys)
-                        {
-                            if (_nowPlaying[chiave].Username == p.Player.Username)
-                                _clientsConnected[chiave].Invia(GeneraMessaggio("blackjack"));
-                        }
-                        hasBj = true;
-                        pos++;
-                    }
-                }
-                
-            }
-            while ((p == null && pos <= 4) || (hasBj && pos <=4));
-            if (pos>4)   
-                FineTurno();
-            else
-            {
-                foreach (var keyValue in _nowPlaying)
-                {
-                    if (keyValue.Value.Username == p.Player.Username)
-                    {
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
-                        id_playing = keyValue.Key;
-                    }
-                }
-            }
-        }
-
-        public async void FineTurno()
-        {
-            Console.WriteLine("eseguo fine turno");
-            List<object> lst;
-
-            //Controlli banco che deve fare almeno 17
-            if (_banco.GetMano().Item1 >= 17)
-            {
-                foreach (var client in _clientsConnected.Values)
-                {
-                    client.Invia(GeneraMessaggio("unveil-card", null));
-                }
-            }
-            else
-            {
-                while (_banco.GetMano().Item1 < 17)
-                {
-                    lst = new List<object>();
-                    _banco.Carte.Add(_mazzo[0]);
-                    lst.Add(_banco);
-                    lst.Add(false);  //non nascondere la carta del dealer 
-                    Console.WriteLine((lst[0] as Place).Carte.Count);
-                    foreach (var client in _clientsConnected.Values)
-                        client.Invia(GeneraMessaggio("new-cards-dealer", lst));
-                    _mazzo.RemoveAt(0);
-                    await Task.Delay(1500);
-                }
-            }
-            #region vittoria sconfitta player
-            foreach (Place p in _posti)
-            {
-                clsClientUDP toSend = null;
-                (int, bool) mano_player = p.GetMano();
-                (int, bool) mano_banco = _banco.GetMano();
-                //determino il client corrispondente al posto
-                foreach (var keyValue in _nowPlaying)
-                {
-                    if (keyValue.Value.Username == p.Player.Username)
-                    {
-                        toSend = _clientsConnected[keyValue.Key];
-                    }
-                }
-                if (toSend != null)
-                {
-                    lst = new List<object>();
-                    Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
-                    if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
-                    {
-                        p.Fiches += p.Puntata;
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("draw",lst));
-                    }
-                    else if (mano_player.Item2)  //blackjack player
-                    {
-                        p.Fiches += p.Puntata * (5/2);
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("player-wins", lst));
-                    }
-                    else if (mano_banco.Item2)   //blackjack server
-                    {
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("dealer-wins", lst));
-                    }
-                    else if (mano_player.Item1 > 21)  //giocatore sballa
-                    {
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("dealer-wins", lst));
-                    }
-                    else if (mano_banco.Item1 > 21)
-                    {
-                        p.Fiches += p.Puntata * 2;
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("player-wins",lst));
-                    }
-                    else if (mano_banco.Item1 == mano_player.Item1)  //stessa mano
-                    {
-                        p.Fiches += p.Puntata;
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("draw",lst));
-                    }
-                    else if (mano_player.Item1 > mano_banco.Item1) //player > server
-                    {
-                        p.Fiches += p.Puntata*2;
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("player-wins",lst));
-                    }
-                    else    //server > player
-                    {
-                        lst.Add(p.Fiches);
-                        toSend.Invia(GeneraMessaggio("dealer-wins",lst));
-                    }
-                    p.Puntata = 0;
-                    Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
-                    
-                    if (p.Fiches == 0)
-                    {
-                        int id_pl = 0;
-                        foreach (int id_player in _nowPlaying.Keys)
-                        {
-                            if (_nowPlaying[id_player].Username == p.Player.Username)
-                            {
-                                id_pl = id_player;
-                                break;
-                            }
-                        }
-                        lst = new List<object>();
-                        _clientsConnected[id_pl].Invia(GeneraMessaggio("no-fiches"));
-                        EliminaPlayer(id_pl, p.Player, "playing");
-                    }
-                }
-                #endregion
-            }
-            await Task.Delay(5000);
-            _banco.Carte.Clear();
-            foreach (Place p in _posti)
-                p.Carte.Clear();
-            if (_nowPlaying.Count != 0 || _lobby.Count != 0)
-                NuovoTurno();
-            else
-                gameStarted = false;
-            
-        }
 
         //Terminato - Funzionante
         public int DeterminaPosto()

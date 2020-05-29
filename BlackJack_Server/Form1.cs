@@ -50,49 +50,10 @@ namespace BlackJack_Server
             switch(received.Action)
             {
                 case "new-conn":
-                    int id = GeneraId();
-                    clsClientUDP client = new clsClientUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()), 
-                                                            Convert.ToInt32(received.Data[0]));
-                    gioco.ClientsConnected.Add(id,client);
-                    List<object> lst = new List<object>();
-                    lst.Add(id);
-                    client.Invia(GeneraMessaggio("conn-established",lst));
+                    NewConn(received.Data[0]);
                     break;
                 case "login-ask":
-                    int id_player = Convert.ToInt32(received.Data[0]);
-                    player = JsonConvert.DeserializeObject<Player>(received.Data[1].ToString());
-                    if (player.Email != null)
-                        player = p_controller.ReadPlayer_ByEmailAndPass(player.Email, player.Password);
-                    else
-                        player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
-                    if (player == null || playersConnected.Any(p=> p.Username == player.Username))
-                    {
-                        lst = new List<object>();
-                        lst.Add(player == null);
-                        gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-failed",lst));
-                    }
-                    else
-                    {
-                        if(gioco.Lobby.Count < 4)
-                        {
-                            lst = new List<object>();
-                            lst.Add(player);
-                            lst.Add(gioco.DeterminaPosto());
-                            gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
-                            gioco.Lobby.Add(id_player, player);
-                            gioco.Posti.Add(new Place(player, gioco.DeterminaPosto())); //TODO: probabilmente va assegnato dinamicamente a inizio turno per i nuovi player
-                            playersConnected.Add(player);
-                            if (gioco.NowPlaying.Count > 0 && gioco.playersBet == gioco.NowPlaying.Count)
-                                gioco.UpdateGraphicsPlayer(player);
-                            else if (gioco.NowPlaying.Count > 0)
-                                gioco.UpdateGraphicsPlayer_dealer(player);
-                            gioco.UpdatePlayerNames();
-                        }
-                        else
-                        {
-                            gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("lobby-full", null));
-                        }
-                    }
+                    LoginAsk(received.Data);
                     break;
                 case "player-ready":
                     if(!gioco.gameStarted)
@@ -103,6 +64,55 @@ namespace BlackJack_Server
             }
         }
 
+        private void NewConn(object data)
+        {
+            int id = GeneraId();
+            clsClientUDP client = new clsClientUDP(IPAddress.Parse(NetUtilities.GetLocalIPAddress()),
+                                                    Convert.ToInt32(data));
+            gioco.ClientsConnected.Add(id, client);
+            List<object> lst = new List<object>();
+            lst.Add(id);
+            client.Invia(GeneraMessaggio("conn-established", lst));
+        }
+
+        private void LoginAsk(List<object> data)
+        {
+            List<object> lst = new List<object>();
+            int id_player = Convert.ToInt32(data[0]);
+            player = JsonConvert.DeserializeObject<Player>(data[1].ToString());
+            if (player.Email != null)
+                player = p_controller.ReadPlayer_ByEmailAndPass(player.Email, player.Password);
+            else
+                player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
+            if (player == null || playersConnected.Any(p => p.Username == player.Username))
+            {
+                lst = new List<object>();
+                lst.Add(player == null);
+                gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-failed", lst));
+            }
+            else
+            {
+                if (gioco.Lobby.Count < 4)
+                {
+                    lst = new List<object>();
+                    lst.Add(player);
+                    lst.Add(gioco.DeterminaPosto());
+                    gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
+                    gioco.Lobby.Add(id_player, player);
+                    gioco.Posti.Add(new Place(player, gioco.DeterminaPosto())); //TODO: probabilmente va assegnato dinamicamente a inizio turno per i nuovi player
+                    playersConnected.Add(player);
+                    if (gioco.NowPlaying.Count > 0 && gioco.playersBet == gioco.NowPlaying.Count)
+                        gioco.UpdateGraphicsPlayer(player);
+                    else if (gioco.NowPlaying.Count > 0)
+                        gioco.UpdateGraphicsPlayer_dealer(player);
+                    gioco.UpdatePlayerNames();
+                }
+                else
+                {
+                    gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("lobby-full", null));
+                }
+            }
+        }
 
         public ClsMessaggio GeneraMessaggio(string action, List<object> data)
         {
@@ -111,7 +121,6 @@ namespace BlackJack_Server
             toSend.Messaggio = JsonConvert.SerializeObject(objMex);
             return toSend;
         }
-
 
         private int GeneraId()
         {
