@@ -21,7 +21,6 @@ namespace BlackJack_Server
         Gioco gioco;
         internal static List<Player> playersConnected;
 
-        //bool gameStarted;
 
         Player_Controller p_controller;
 
@@ -83,8 +82,10 @@ namespace BlackJack_Server
                             gioco.Lobby.Add(id_player, player);
                             gioco.Posti.Add(new Place(player, gioco.DeterminaPosto())); //TODO: probabilmente va assegnato dinamicamente a inizio turno per i nuovi player
                             playersConnected.Add(player);
-                            if(gioco.NowPlaying.Count > 0)
+                            if (gioco.NowPlaying.Count > 0 && gioco.playersBet == gioco.NowPlaying.Count)
                                 gioco.UpdateGraphicsPlayer(player);
+                            else if (gioco.NowPlaying.Count > 0)
+                                gioco.UpdateGraphicsPlayer_dealer(player);
                             gioco.UpdatePlayerNames();
                         }
                         else
