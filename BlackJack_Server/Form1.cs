@@ -38,6 +38,7 @@ namespace BlackJack_Server
             server.avvia();
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
             gioco = new Gioco(server);
+            this.Visible = false;
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)

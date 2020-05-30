@@ -31,6 +31,7 @@ namespace BlackJack_Server
         private int id_playing;
         private int numPinged;
         public int playersBet;
+        private bool betPhase;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -56,6 +57,7 @@ namespace BlackJack_Server
             server.datiRicevutiEvent += Server_pingEvent;
             gameStarted = false;
             playersBet = 0;
+            betPhase = false;
             
             numPinged = 0;
             PingConn();
@@ -188,6 +190,7 @@ namespace BlackJack_Server
         {
             gameStarted = true;
             playersBet = 0;
+            betPhase = true;
             //aggiunta player entrati con il turno in corso
             foreach (var player in _lobby)
             {
@@ -264,7 +267,7 @@ namespace BlackJack_Server
         {
             Console.WriteLine("eseguo fine turno");
             List<object> lst;
-
+            id_playing = 0;
             //Controlli banco che deve fare almeno 17
             if (_banco.GetMano().Item1 >= 17)
             {
@@ -398,6 +401,7 @@ namespace BlackJack_Server
             if (playersBet >= _nowPlaying.Count)
             {
                 GiveCards();
+                betPhase = false;
                 StartPlayerTurn(_havePlayed + 1);
             }
         }
@@ -429,7 +433,7 @@ namespace BlackJack_Server
                 _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", lst));
                 _havePlayed++;
 
-                if (_havePlayed == _posti.Count)
+                if (_havePlayed >= _posti.Count)
                     FineTurno();
                 else
                 {
@@ -455,7 +459,7 @@ namespace BlackJack_Server
             int id_player = Convert.ToInt32(data);
             _havePlayed++;
 
-            if (_havePlayed == _nowPlaying.Count)
+            if (_havePlayed >= _nowPlaying.Count)
                 FineTurno();
             else
                 StartPlayerTurn(_havePlayed + 1);
@@ -673,6 +677,11 @@ namespace BlackJack_Server
             foreach (clsClientUDP client in _clientsConnected.Values)
             {
                 client.Invia(GeneraMessaggio("player-leave", lst));
+            }
+            if(betPhase)
+            {
+                if (_havePlayed >= _nowPlaying.Count)
+                    FineTurno();
             }
         }
 
