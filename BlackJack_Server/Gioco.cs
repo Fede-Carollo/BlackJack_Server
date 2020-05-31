@@ -96,8 +96,8 @@ namespace BlackJack_Server
             {
                 posto.Carte = new List<Card>();
 
-                #region forza bj
-                /*#if DEBUG
+                //#region forza bj
+                #if DEBUG
                                 if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
                                 {
                                     posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
@@ -112,15 +112,15 @@ namespace BlackJack_Server
                                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
                                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
                                 }
-                #else*/
-                #endregion
+                #else
+                //#endregion
 
                 for (int i = 0; i < 2; i++)
                 {
                     posto.Carte.Add(_mazzo[0]);
                     _mazzo.RemoveAt(0);
                 }
-                //#endif
+                #endif
                 
             }
         }
@@ -224,12 +224,26 @@ namespace BlackJack_Server
         {
             Place p;
             bool hasBj;
+            bool rightPlayer = false;
             (int, bool) mano = (0, false);
             do
             {
                 hasBj = false;
                 p = _posti.Find(pl => pl.Posizione == pos);
-                if (p == null)
+                //TODO: controllare che il posto trovato esista in nowplaying
+                if(p!= null)
+                {
+                    foreach (var keyValue in _nowPlaying)
+                    {
+                        if (keyValue.Value.Username == p.Player.Username)
+                        {
+                            rightPlayer = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (p == null || !rightPlayer)
                     pos++;
                 else
                 {
@@ -247,7 +261,7 @@ namespace BlackJack_Server
                 }
 
             }
-            while ((p == null && pos <= 4) || (hasBj && pos <= 4));
+            while ((p == null && pos <= 4) || (hasBj && pos <= 4) || !rightPlayer);
             if (pos > 4)
                 FineTurno();
             else
@@ -273,7 +287,7 @@ namespace BlackJack_Server
             {
                 foreach (var client in _clientsConnected.Values)
                 {
-                    client.Invia(GeneraMessaggio("unveil-card", null));
+                    client.Invia(GeneraMessaggio("unveil-card"));
                 }
             }
             else
@@ -317,7 +331,7 @@ namespace BlackJack_Server
                     }
                     else if (mano_player.Item2)  //blackjack player
                     {
-                        p.Fiches += p.Puntata * (5 / 2);
+                        p.Fiches += p.Puntata + p.Puntata * (5 / 2);
                         lst.Add(p.Fiches);
                         toSend.Invia(GeneraMessaggio("player-wins", lst));
                     }
@@ -394,8 +408,9 @@ namespace BlackJack_Server
         {
             int posizione_tavolo = Convert.ToInt32(data[0]);
             int puntata = Convert.ToInt32(data[1]);
-            _posti.Find(p => p.Posizione == posizione_tavolo).Fiches -= puntata;
-            _posti.Find(p => p.Posizione == posizione_tavolo).Puntata = puntata;
+            Place current = _posti.Find(p => p.Posizione == posizione_tavolo);
+            current.Fiches -= puntata;
+            current.Puntata += puntata;
             playersBet++;
             List<object> lst = new List<object>();
             if (playersBet >= _nowPlaying.Count)
@@ -468,7 +483,10 @@ namespace BlackJack_Server
         private void DoubleBet(List<object> lst)
         {
             int pos_tavolo = Convert.ToInt32(lst[0]);
-            _posti.Find(p=> p.Posizione == pos_tavolo).Puntata *= 2;
+            Place current = _posti.Find(p => p.Posizione == pos_tavolo);
+            current.Fiches -= current.Puntata;
+            current.Puntata *= 2;
+            
             PlayerHit(lst);
         }
 
