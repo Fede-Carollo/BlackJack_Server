@@ -11,6 +11,7 @@ using System.Net;
 using SOCKET_UDP;
 using Newtonsoft.Json;
 using System.Net.Sockets;
+using System.Net.Configuration;
 
 namespace BlackJack_Server
 {
@@ -62,7 +63,35 @@ namespace BlackJack_Server
                         gioco.NuovoTurno();
                     }
                     break;
+                case "register":
+                    VerificaEsistenza(received.Data);
+                    break;
             }
+        }
+
+        private void VerificaEsistenza(List<object> data)
+        {
+            int log_id = Convert.ToInt32(data[0]);
+            string username = data[2].ToString();
+            string email = data[1].ToString();
+            string password = data[3].ToString();
+            List<object> lst = new List<object>();
+            if (p_controller.EmailExisting(email))
+            {
+                lst.Add(false);
+                lst.Add("email");
+            }
+            else if (p_controller.UsernameExisting(username))
+            {
+                lst.Add(false);
+                lst.Add("username");
+            }
+            else
+            {
+                lst.Add(true);
+                p_controller.CreatePlayer(username, email, password);
+            }
+            gioco.ClientsConnected[log_id].Invia(GeneraMessaggio("response-register", lst));
         }
 
         private void NewConn(object data)

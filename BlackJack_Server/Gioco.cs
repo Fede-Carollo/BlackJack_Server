@@ -96,8 +96,8 @@ namespace BlackJack_Server
             {
                 posto.Carte = new List<Card>();
 
-                //#region forza bj
-                #if DEBUG
+                #region forza bj
+                /*#if DEBUG
                                 if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
                                 {
                                     posto.Carte.Add(_mazzo.Find(c => c.Seme == 'p' && c.Numero == 1));
@@ -112,15 +112,15 @@ namespace BlackJack_Server
                                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 1));
                                     _mazzo.Remove(_mazzo.Find(c => c.Seme == 'f' && c.Numero == 13));
                                 }
-                #else
-                //#endregion
+                #else*/
+                #endregion
 
                 for (int i = 0; i < 2; i++)
                 {
                     posto.Carte.Add(_mazzo[0]);
                     _mazzo.RemoveAt(0);
                 }
-                #endif
+                //#endif
                 
             }
         }
