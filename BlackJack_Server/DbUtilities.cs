@@ -11,6 +11,11 @@ namespace Progetto_Alternanza
 {
     public static class DbUtilities
     {
+        /// <summary>
+        /// Ritorna l'istanza del DB del BJ
+        /// </summary>
+        /// <param name="dbName">Nome del Database</param>
+        /// <returns></returns>
         public static SqlConnection InstanceSqlConn(string dbName = "BlackJack.mdf")
         {
             string name = Application.StartupPath;

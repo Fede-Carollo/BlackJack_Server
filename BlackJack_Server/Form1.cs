@@ -1,17 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Net;
 using SOCKET_UDP;
 using Newtonsoft.Json;
-using System.Net.Sockets;
-using System.Net.Configuration;
 
 namespace BlackJack_Server
 {
@@ -21,8 +14,6 @@ namespace BlackJack_Server
         Player player;
         Gioco gioco;
         internal static List<Player> playersConnected;
-
-
         Player_Controller p_controller;
 
         public Form1()
@@ -39,7 +30,6 @@ namespace BlackJack_Server
             server.avvia();
             server.datiRicevutiEvent += Server_datiRicevutiEvent;
             gioco = new Gioco(server);
-            this.Visible = false;
         }
 
         private void Server_datiRicevutiEvent(ClsMessaggio message)
@@ -69,6 +59,10 @@ namespace BlackJack_Server
             }
         }
 
+        /// <summary>
+        /// Per registrare un nuovo profilo
+        /// </summary>
+        /// <param name="data"></param>
         private void VerificaEsistenza(List<object> data)
         {
             int log_id = Convert.ToInt32(data[0]);
@@ -91,9 +85,13 @@ namespace BlackJack_Server
                 lst.Add(true);
                 p_controller.CreatePlayer(username, email, password);
             }
+            //primo oggetto: credenziali valide; secondo oggetto: quale delle due è sbagliata
             gioco.ClientsConnected[log_id].Invia(GeneraMessaggio("response-register", lst));
         }
-
+        /// <summary>
+        /// Registrazione di un nuovo client collegato
+        /// </summary>
+        /// <param name="data"></param>
         private void NewConn(object data)
         {
             int id = GeneraId();
@@ -105,14 +103,18 @@ namespace BlackJack_Server
             client.Invia(GeneraMessaggio("conn-established", lst));
         }
 
+        /// <summary>
+        /// Richiesta di accesso in lobby utente
+        /// </summary>
+        /// <param name="data">Datti passati dal client</param>
         private void LoginAsk(List<object> data)
         {
             List<object> lst = new List<object>();
             int id_player = Convert.ToInt32(data[0]);
             player = JsonConvert.DeserializeObject<Player>(data[1].ToString());
-            if (player.Email != null)
+            if (player.Email != null)   //se login tramite username
                 player = p_controller.ReadPlayer_ByEmailAndPass(player.Email, player.Password);
-            else
+            else    //se login tramite password
                 player = p_controller.ReadPlayer_ByUsernameAndPass(player.Username, player.Password);
             if (player == null || playersConnected.Any(p => p.Username == player.Username))
             {
@@ -122,29 +124,40 @@ namespace BlackJack_Server
             }
             else
             {
-                if (gioco.Lobby.Count < 4)
+                if ((gioco.Lobby.Count+gioco.NowPlaying.Count) < 4)  //posto disponibile
                 {
+                    int posto = gioco.DeterminaPosto();
                     lst = new List<object>();
                     lst.Add(player);
-                    lst.Add(gioco.DeterminaPosto());
+                    lst.Add(posto);
                     gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("login-success", lst));
                     gioco.Lobby.Add(id_player, player);
-                    gioco.Posti.Add(new Place(player, gioco.DeterminaPosto())); //TODO: probabilmente va assegnato dinamicamente a inizio turno per i nuovi player
+                    gioco.Posti.Add(new Place(player, posto));
                     playersConnected.Add(player);
-                    if (gioco.NowPlaying.Count > 0 && gioco.playersBet == gioco.NowPlaying.Count)
+                    if (gioco.NowPlaying.Count > 0 && gioco.playersBet == gioco.NowPlaying.Count)   //giocatori in fase di gioco
+                    {
                         gioco.UpdateGraphicsPlayer(player);
-                    else if (gioco.NowPlaying.Count > 0)
+                    }
+                    else if (gioco.NowPlaying.Count > 0)    //giocatori in fase di bet
+                    {
                         gioco.UpdateGraphicsPlayer_dealer(player);
+                    }
                     gioco.UpdatePlayerNames();
                 }
-                else
+                else    //lobby piena
                 {
-                    gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("lobby-full", null));
+                    gioco.ClientsConnected[id_player].Invia(GeneraMessaggio("lobby-full"));
                 }
             }
         }
 
-        public ClsMessaggio GeneraMessaggio(string action, List<object> data)
+        /// <summary>
+        /// Generazione del messaggio standard per invio messaggi
+        /// </summary>
+        /// <param name="action">azione da eseguire</param>
+        /// <param name="data">dati aggiuntivi (opzionali)</param>
+        /// <returns></returns>
+        public ClsMessaggio GeneraMessaggio(string action, List<object> data = null)
         {
             ClsMessaggio toSend = new ClsMessaggio();
             ObjMex objMex = new ObjMex(action, data);
@@ -152,6 +165,10 @@ namespace BlackJack_Server
             return toSend;
         }
 
+        /// <summary>
+        /// Generazione id_unico per la partita
+        /// </summary>
+        /// <returns>id univoco per la sessione</returns>
         private int GeneraId()
         {
             Random rnd = new Random(DateTime.Now.Millisecond);
@@ -174,11 +191,12 @@ namespace BlackJack_Server
             return id;
         }
 
+        //Fa sapere ai giocatori collegati che il server si stacca
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             foreach (clsClientUDP client in gioco.ClientsConnected.Values)
             {
-                client.Invia(GeneraMessaggio("server-shutdown",null));
+                client.Invia(GeneraMessaggio("server-shutdown"));
             }
         }
     }

@@ -63,6 +63,10 @@ namespace BlackJack_Server
             PingConn();
         }
 
+        /// <summary>
+        /// Delegato scatenato in arrivo di nuovi dati
+        /// </summary>
+        /// <param name="message"></param>
         private void Server_datiRicevutiEvent(ClsMessaggio message)
         {
             string[] ricevuti = message.toArray();
@@ -89,13 +93,16 @@ namespace BlackJack_Server
 
         #region gestione carte giocatori prima mano
 
+        /// <summary>
+        /// Vanno solamente generate a inizio turno
+        /// </summary>
         private void GeneraCartePlayers()
         {
-            
             foreach (Place posto in _posti)
             {
                 posto.Carte = new List<Card>();
 
+                //per test in caso di BJ
                 #region forza bj
                 /*#if DEBUG
                                 if(_mazzo.Any(c => c.Seme == 'p' && c.Numero == '1'))
@@ -125,6 +132,9 @@ namespace BlackJack_Server
             }
         }
 
+        /// <summary>
+        /// Distribuzione carte generate in precedenza
+        /// </summary>
         private void GiveCards()
         {
             foreach (Place posto in _posti)
@@ -144,6 +154,10 @@ namespace BlackJack_Server
 
         #region updates
 
+        /// <summary>
+        /// Aggiorna le carte solo del dealer per il giocatore entrato in lobby in fase di bet
+        /// </summary>
+        /// <param name="player"></param>
         internal void UpdateGraphicsPlayer_dealer(Player player)
         {
             List<object> lst = new List<object>();
@@ -156,6 +170,9 @@ namespace BlackJack_Server
             }
         }
 
+        /// <summary>
+        /// Aggiorna i nomi dei giocatori già presenti
+        /// </summary>
         internal void UpdatePlayerNames()
         {
             List<object> lst = new List<object>();
@@ -167,7 +184,10 @@ namespace BlackJack_Server
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(GeneraMessaggio("update-names", lst));
         }
-
+        /// <summary>
+        /// Aggiornamento carte di tutti i giocatori e del dealer per giocatori entrati in lobby in fase di game
+        /// </summary>
+        /// <param name="player">Per identificare l'id del giocatore a cui inviare gli aggiornamenti</param>
         internal void UpdateGraphicsPlayer(Player player)
         {
             List<object> lst = new List<object>();
@@ -178,7 +198,10 @@ namespace BlackJack_Server
             foreach (var keyValue in _lobby)
             {
                 if (keyValue.Value.Username == player.Username)
+                {
                     _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("update-graphics", lst));
+                    break;
+                }
             }
         }
 
@@ -196,13 +219,15 @@ namespace BlackJack_Server
             {
                 _nowPlaying.Add(player.Key, player.Value);
             }
+            //comunicazione inizio nuovo turno a tutti i giocatori giocanti
             foreach (int key in _nowPlaying.Keys)
             {
                 _clientsConnected[key].Invia(GeneraMessaggio("new-turn"));
             }
-            //generazione carte banco
+            //Aggiornamento mazzo
             CaricaMazzo();
             ShuffleMazzo();
+            //generazione carte banco
             List<object> list = new List<object>();
             for (int i = 0; i < 2; i++)
             {
@@ -212,7 +237,6 @@ namespace BlackJack_Server
             list.Add(_banco);
             list.Add(true);     //nascondi carta
             ClsMessaggio mess = GeneraMessaggio("new-cards-dealer", list);
-            Console.WriteLine((list[0] as Place).Carte.Count);
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(mess);
             _lobby = new Dictionary<int, Player>();
@@ -220,6 +244,10 @@ namespace BlackJack_Server
             GeneraCartePlayers();
         }
 
+        /// <summary>
+        /// Determina il prossimo giocatore che deve giocare
+        /// </summary>
+        /// <param name="pos"></param>
         private void StartPlayerTurn(int pos)
         {
             Place p;
@@ -230,7 +258,7 @@ namespace BlackJack_Server
             {
                 hasBj = false;
                 p = _posti.Find(pl => pl.Posizione == pos);
-                //TODO: controllare che il posto trovato esista in nowplaying
+                //controllo che sia un giocatore in gioco e non in lobby
                 if(p!= null)
                 {
                     foreach (var keyValue in _nowPlaying)
@@ -243,9 +271,9 @@ namespace BlackJack_Server
                     }
                 }
                 
-                if (p == null || !rightPlayer)
+                if (p == null || !rightPlayer)  //se non esiste o è in lobby
                     pos++;
-                else
+                else    //se esiste e gioca
                 {
                     mano = p.GetMano();
                     if (mano.Item1 == 21)
@@ -253,7 +281,7 @@ namespace BlackJack_Server
                         foreach (int chiave in _nowPlaying.Keys)
                         {
                             if (_nowPlaying[chiave].Username == p.Player.Username)
-                                _clientsConnected[chiave].Invia(GeneraMessaggio("blackjack"));
+                                _clientsConnected[chiave].Invia(GeneraMessaggio("blackjack"));  //blocca i pulsanti lato client
                         }
                         hasBj = true;
                         pos++;
@@ -272,22 +300,26 @@ namespace BlackJack_Server
                     {
                         _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
                         id_playing = keyValue.Key;
+                        break;
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// Metodo asincrono per la gestione di fune turno
+        /// </summary>
         public async void FineTurno()
         {
             Console.WriteLine("eseguo fine turno");
             List<object> lst;
             id_playing = 0;
             //Controlli banco che deve fare almeno 17
-            if (_banco.GetMano().Item1 >= 17)
+            if (_banco.GetMano().Item1 >= 17) 
             {
-                foreach (var client in _clientsConnected.Values)
+                foreach (clsClientUDP client in _clientsConnected.Values)
                 {
-                    client.Invia(GeneraMessaggio("unveil-card"));
+                    client.Invia(GeneraMessaggio("unveil-card"));   //svela la carta coperta se ha già 17
                 }
             }
             else
@@ -298,7 +330,6 @@ namespace BlackJack_Server
                     _banco.Carte.Add(_mazzo[0]);
                     lst.Add(_banco);
                     lst.Add(false);  //non nascondere la carta del dealer 
-                    Console.WriteLine((lst[0] as Place).Carte.Count);
                     foreach (var client in _clientsConnected.Values)
                         client.Invia(GeneraMessaggio("new-cards-dealer", lst));
                     _mazzo.RemoveAt(0);
@@ -317,12 +348,13 @@ namespace BlackJack_Server
                     if (keyValue.Value.Username == p.Player.Username)
                     {
                         toSend = _clientsConnected[keyValue.Key];
+                        break;
                     }
                 }
-                if (toSend != null)
+                if (toSend != null) //controlli necessari per l'eventualità di abbandono del giocatore
                 {
+                    //Gestione vittoria/sconfitta
                     lst = new List<object>();
-                    Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
                     if (mano_player.Item2 && mano_banco.Item2)  //entrambi blackjack
                     {
                         p.Fiches += p.Puntata;
@@ -331,7 +363,7 @@ namespace BlackJack_Server
                     }
                     else if (mano_player.Item2)  //blackjack player
                     {
-                        p.Fiches += p.Puntata + p.Puntata * (5 / 2);
+                        p.Fiches += p.Puntata * (5 / 2);
                         lst.Add(p.Fiches);
                         toSend.Invia(GeneraMessaggio("player-wins", lst));
                     }
@@ -371,6 +403,7 @@ namespace BlackJack_Server
                     p.Puntata = 0;
                     Console.WriteLine($"{p.Player.Username}: {p.Fiches}");
 
+                    //eliminazione giocatore se termina le fiches
                     if (p.Fiches == 0)
                     {
                         int id_pl = 0;
@@ -389,14 +422,14 @@ namespace BlackJack_Server
                 }
                 #endregion
             }
-            await Task.Delay(5000);
+            await Task.Delay(5000); //tempo di delay per dare il tempo ai player di leggere i risultati
             _banco.Carte.Clear();
             foreach (Place p in _posti)
                 p.Carte.Clear();
             if (_nowPlaying.Count != 0 || _lobby.Count != 0)
                 NuovoTurno();
             else
-                gameStarted = false;
+                gameStarted = false;    //in modo da far ripartire il gioco al log di un nuovo player
 
         }
 
@@ -404,6 +437,10 @@ namespace BlackJack_Server
 
         #region metodi switch
 
+        /// <summary>
+        /// Bet da parte di un giocatore
+        /// </summary>
+        /// <param name="data">informazioni sul giocatore</param>
         private void PlayerBet(List<object> data)
         {
             int posizione_tavolo = Convert.ToInt32(data[0]);
@@ -413,7 +450,7 @@ namespace BlackJack_Server
             current.Puntata += puntata;
             playersBet++;
             List<object> lst = new List<object>();
-            if (playersBet >= _nowPlaying.Count)
+            if (playersBet >= _nowPlaying.Count)    //quando hanno puntato tutti, >= e non uguale per l'eventualità di abbandono player
             {
                 GiveCards();
                 betPhase = false;
@@ -421,6 +458,10 @@ namespace BlackJack_Server
             }
         }
 
+        /// <summary>
+        /// Richiesta nuova carta giocatore
+        /// </summary>
+        /// <param name="data">informazioni giocatore</param>
         private void PlayerHit(List<object> data)
         {
             int posizione_tavolo = Convert.ToInt32(data[0]);
@@ -448,24 +489,14 @@ namespace BlackJack_Server
                 _clientsConnected[id_player].Invia(GeneraMessaggio("hand-twentyone", lst));
                 _havePlayed++;
 
-                if (_havePlayed >= _posti.Count)
-                    FineTurno();
-                else
-                {
-                    StartPlayerTurn(_havePlayed + 1);
-                }
+                //passaggio prossimo turno
+                FineTurnoPlayer();
             }
             else if (hand.Item1 > 21)
             {
                 _clientsConnected[id_player].Invia(GeneraMessaggio("hand-bust", null));
                 _havePlayed++;
-
-                if (_havePlayed == _nowPlaying.Count)
-                    FineTurno();
-                else
-                {
-                    StartPlayerTurn(_havePlayed + 1);
-                }
+                FineTurnoPlayer();
             }
         }
 
@@ -473,11 +504,7 @@ namespace BlackJack_Server
         {
             int id_player = Convert.ToInt32(data);
             _havePlayed++;
-
-            if (_havePlayed >= _nowPlaying.Count)
-                FineTurno();
-            else
-                StartPlayerTurn(_havePlayed + 1);
+            FineTurnoPlayer();
         }
 
         private void DoubleBet(List<object> lst)
@@ -491,6 +518,17 @@ namespace BlackJack_Server
         }
 
         #endregion
+
+        //determina se iniziare un nuovo turno o se passare il turno al prossimo giocatore
+        private void FineTurnoPlayer()
+        {
+            if (_havePlayed == _nowPlaying.Count)
+                FineTurno();
+            else
+            {
+                StartPlayerTurn(_havePlayed + 1);
+            }
+        }
 
         //Terminato - Funzionante
         public int DeterminaPosto()
@@ -558,9 +596,7 @@ namespace BlackJack_Server
                 client.Value.Invia(GeneraMessaggio("ping"));
                 _clientsPingResponse.Item1.Add(client.Key, client.Value);
             }
-            #if DEBUG
             Console.WriteLine($"ping inviato a {_clientsConnected.Count} client");
-            #endif
             numPinged = _clientsConnected.Count;
             pingResponse = new System.Windows.Forms.Timer();
             pingResponse.Tick += PingResponse_Tick;
@@ -573,35 +609,28 @@ namespace BlackJack_Server
             #if DEBUG
             Console.WriteLine($"Non hanno risposto {numPinged}");
             #endif
-            if(numPinged>0)
+            if(numPinged>0) //se qualcuno non risponde
             {
-                //TODO: qualcuno non ha risposto >:(
                 foreach (int clientSentKey in _clientsPingResponse.Item1.Keys)
                 {
                     if(!_clientsPingResponse.Item2.Keys.Any(key => key == clientSentKey))
                     {
                         _clientsConnected.Remove(clientSentKey);
-                        if(id_playing == clientSentKey)
+                        if(id_playing == clientSentKey) 
                         {
                             SwitchPlayer();
                         }
                         else
                         {
-                            if (_nowPlaying.Keys.Any(c => c == clientSentKey))
+                            if (_nowPlaying.Keys.Any(c => c == clientSentKey))  //elimina il giocatore dalla partita o dalla lobby
                                 EliminaPlayer(clientSentKey,_nowPlaying[clientSentKey], "playing");
                             else if(_lobby.Keys.Any(c => c == clientSentKey))
                                 EliminaPlayer(clientSentKey,_lobby[clientSentKey], "lobby");
                         }
                     }
                 }
-                #if DEBUG
-                foreach (var item in _clientsConnected.Keys)
-                    Console.WriteLine(item);
-                #endif
-
             }
             pingResponse.Stop();
-            //canPing = true;
             PingConn();
         }
 
@@ -633,7 +662,7 @@ namespace BlackJack_Server
                                 break;
                             }
                         }
-                        if(id_player != 0 && trovato)  //dà problemi alcune volte
+                        if(id_player != 0 && trovato)  //dà problemi quando non si sincornizza l'esecuzione
                             _clientsPingResponse.Item2.Add(id_player, _clientsPingResponse.Item1[id_player]);
                         numPinged--;
                     }
@@ -665,7 +694,7 @@ namespace BlackJack_Server
                 lst.Add(pos);
                 foreach (clsClientUDP client in _clientsConnected.Values)
                 {
-                    client.Invia(GeneraMessaggio("player-leave", lst));
+                    client.Invia(GeneraMessaggio("player-leave", lst)); //Comunica agli altri giocatori di aggiornare il posto
                 }
             }
             if (_havePlayed > _nowPlaying.Count)
@@ -677,7 +706,7 @@ namespace BlackJack_Server
         private async void EliminaPlayer(int id, Player toDelete, string status)
         {
             await Task.Delay(1);
-            if (playersBet > 0)
+            if (playersBet > 0) //per evitare problemi
                 playersBet--;
             int pos = _posti.Find(p => p.Player.Username == toDelete.Username).Posizione;
             _posti.Remove(_posti.Find(p => p.Player.Username == toDelete.Username));

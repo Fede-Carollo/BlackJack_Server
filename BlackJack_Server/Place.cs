@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace BlackJack_Server
 {
+    /// <summary>
+    /// Posto standard BJ
+    /// </summary>
     public class Place
     {
         private Player _player;
@@ -20,6 +23,11 @@ namespace BlackJack_Server
         public int Fiches { get => _fiches; set => _fiches = value; }
         public int Puntata { get => _puntata; set => _puntata = value; }
 
+        /// <summary>
+        /// Istanza con nuovo giocatore
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="pos"></param>
         internal Place(Player player, int pos)
         {
             this._player = player;
@@ -29,8 +37,10 @@ namespace BlackJack_Server
         }
 
 
-
-        internal Place() //Costruttore del banco
+        /// <summary>
+        /// Istanza del banco
+        /// </summary>
+        internal Place() 
         {
             this._carte = new List<Card>();
         }

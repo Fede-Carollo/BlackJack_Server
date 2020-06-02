@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace BlackJack_Server
 {
+    /// <summary>
+    /// Giocatore registrato
+    /// </summary>
     internal class Player
     {
         string _username;
