@@ -88,6 +88,18 @@ namespace BlackJack_Server
                 case "double-bet":
                     DoubleBet(received.Data);
                     break;
+                case "player-leaving":
+                    int id_player = Convert.ToInt32(received.Data[0]);
+                    if (id_player == id_playing)
+                        SwitchPlayer();
+                    else
+                    {
+                        if (_nowPlaying.ContainsKey(id_player))
+                            EliminaPlayer(id_player, _nowPlaying[id_player], "playing");
+                        else
+                            EliminaPlayer(id_player, _nowPlaying[id_player], "lobby");
+                    }
+                    break;
             }
         }
 
