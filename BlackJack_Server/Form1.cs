@@ -134,7 +134,7 @@ namespace BlackJack_Server
                     gioco.Lobby.Add(id_player, player);
                     gioco.Posti.Add(new Place(player, posto));
                     playersConnected.Add(player);
-                    if (gioco.NowPlaying.Count > 0 && gioco.playersBet == gioco.NowPlaying.Count)   //giocatori in fase di gioco
+                    if (gioco.NowPlaying.Count > 0 && !gioco.betPhase)   //giocatori in fase di gioco
                     {
                         gioco.UpdateGraphicsPlayer(player);
                     }

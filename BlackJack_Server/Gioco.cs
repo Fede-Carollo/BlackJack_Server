@@ -31,7 +31,7 @@ namespace BlackJack_Server
         private int id_playing;
         private int numPinged;
         public int playersBet;
-        private bool betPhase;
+        public bool betPhase;
 
         public int HavePlayed { get => _havePlayed; set => _havePlayed = value; }
         internal Dictionary<int, Player> Lobby { get => _lobby; set => _lobby = value; }
@@ -224,6 +224,7 @@ namespace BlackJack_Server
             {
                 _clientsConnected[key].Invia(GeneraMessaggio("new-turn"));
             }
+            _lobby = new Dictionary<int, Player>();
             //Aggiornamento mazzo
             CaricaMazzo();
             ShuffleMazzo();
@@ -239,7 +240,6 @@ namespace BlackJack_Server
             ClsMessaggio mess = GeneraMessaggio("new-cards-dealer", list);
             foreach (clsClientUDP client in _clientsConnected.Values)
                 client.Invia(mess);
-            _lobby = new Dictionary<int, Player>();
             _havePlayed = 0;
             GeneraCartePlayers();
         }
@@ -298,7 +298,7 @@ namespace BlackJack_Server
                 {
                     if (keyValue.Value.Username == p.Player.Username)
                     {
-                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn", null));
+                        _clientsConnected[keyValue.Key].Invia(GeneraMessaggio("your-turn"));
                         id_playing = keyValue.Key;
                         break;
                     }
@@ -697,10 +697,7 @@ namespace BlackJack_Server
                     client.Invia(GeneraMessaggio("player-leave", lst)); //Comunica agli altri giocatori di aggiornare il posto
                 }
             }
-            if (_havePlayed > _nowPlaying.Count)
-                FineTurno();
-            else
-                StartPlayerTurn(_havePlayed + 1);
+            FineTurnoPlayer();
         }
 
         private async void EliminaPlayer(int id, Player toDelete, string status)
